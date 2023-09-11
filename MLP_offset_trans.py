@@ -21,7 +21,7 @@ os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/
 
 # Random Search
 # # Define expanded ranges for your hyperparameters
-#learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
+learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
 # batch_size_range = [8, 16, 32, 64, 128, 256]
 # dropout_rate_range = [0.05, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7]
 # layer_sizes_range = [
@@ -45,7 +45,7 @@ os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/
 # learning_rate_range = [1e-5]
 # batch_size_range = [64]
 # dropout_rate_range = [0.1]
-learning_rate_range = [5e-3]
+#learning_rate_range = [5e-3]
 batch_size_range = [32]
 dropout_rate_range = [0.1]
 layer_sizes_range = [
