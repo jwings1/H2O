@@ -44,7 +44,7 @@ export WANDB_CACHE_DIR=/scratch_net/biwidl307/lgermano/crossvit/wandb/cache
 
 
 #tensorboard --logdir=logs/ #--host 129.132.67.159
-python /scratch_net/biwidl307/lgermano/H2O/MLP_hyperp_tuning.py
+python /scratch_net/biwidl307/lgermano/H2O/MLP_offset_trans.py
 
 echo "DONE!"
 

@@ -21,7 +21,7 @@ os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/
 
 # Random Search
 # # Define expanded ranges for your hyperparameters
-learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
+#learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
 # batch_size_range = [8, 16, 32, 64, 128, 256]
 # dropout_rate_range = [0.05, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7]
 # layer_sizes_range = [
@@ -39,13 +39,13 @@ learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-
 # N_TRIALS = 20
 # EPOCHS = 300
 
-#learning_rate_range = [1e-2]
+# learning_rate_range = [1e-5, 1e-4]
 # batch_size_range = [64, 128]
-dropout_rate_range = [0.1]
+# dropout_rate_range = [0.1, 0.2]
 # learning_rate_range = [1e-5]
 # batch_size_range = [64]
 # dropout_rate_range = [0.1]
-#learning_rate_range = [5e-3]
+learning_rate_range = [5e-3]
 batch_size_range = [32]
 dropout_rate_range = [0.1]
 layer_sizes_range = [
@@ -55,7 +55,7 @@ layer_sizes_range = [
     # [1024, 1024, 512, 512, 256],
     [256, 256, 256, 128, 64, 32],
     # [512, 512, 512, 256, 128, 64],
-    #[1024, 1024, 1024, 512, 256, 128],
+    # [1024, 1024, 1024, 512, 256, 128],
     # [128, 128, 128, 64, 64, 32, 32]
 ]
     #[128, 128, 64, 64, 32],
@@ -65,6 +65,8 @@ layer_sizes_range = [
     #[8192, 8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64],
     #[8192, 8192, 8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64, 32]
     #[8192, 8192, 8192, 8192, 8192, 4096, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64]
+
+
 
 EPOCHS = 100
 best_val_loss = float('inf')
@@ -133,7 +135,6 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
         return np.concatenate([transformed_pose, transformed_trans])
 
-
     def transform_object_to_camera_frame(obj_data, camera1_params, cam_params):
         
         # Extract rotation and translation of camera from world coordinates
@@ -154,9 +155,10 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         # Compute the overall transformation matrix
         T_overall = np.linalg.inv(T_cam) @ T_obj
 
-        transformed_pose = Rotation.from_matrix(T_overall[:3, :3]).as_rotvec().flatten()
-            
-        return np.concatenate([transformed_pose])
+        #transformed_pose = Rotation.from_matrix(T_overall[:3, :3]).as_rotvec().flatten()
+        transformed_trans = T_overall[:3, 3].flatten()
+
+        return np.concatenate([transformed_trans])
 
     # Modified function to load ground truth SMPL with reprojections
     def load_ground_truth_SMPL(ground_path, base_path):
@@ -175,14 +177,14 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         for filename in paths:
             with open(filename, 'rb') as file:
                 data = pickle.load(file)
-            SMPL_ground = np.concatenate([data['pose'], data['trans']])
+            SMPL_ground = np.concatenate([data['pose'][:72], data['trans']])
             ground_SMPL_list.append(SMPL_ground)
 
             Date = filename.split('/')[6].split('_')[0]
 
             # Reproject to cameras 0, 2, and 3
             camera1_params = load_config(1, base_path, Date)
-            pose = data['pose']
+            pose = data['pose'][:72]
             trans = data['trans']
             
             # For Camera 0
@@ -206,12 +208,16 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         return ground_SMPL_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
 
     def load_object_data(object_path, base_path):
+
         object_data_list = []
         reprojected_cam0_list = []
         reprojected_cam2_list = []
         reprojected_cam3_list = []
         paths = []
         identifiers = []
+        object_data_1_list = []             
+        object_offsets = []
+        prev_object_data = None
 
         for filename in glob.iglob(os.path.join(object_path, '**', '*', 'fit01', '*_fit.pkl'), recursive=True):
             paths.append(filename)
@@ -220,42 +226,92 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         for filename in paths:
             with open(filename, 'rb') as file:
                 data = pickle.load(file)
-            
-            object_data = np.concatenate([data['angle'], data['trans']])
-            #object_data = np.concatenate([data['trans']])
-            object_data_1 = np.concatenate([data['angle']])
-            object_data_list.append(object_data_1)
 
             Date = filename.split('/')[6].split('_')[0]
+            scene = filename.split('/')[6].split('_')[2:]
 
-            # Reproject to cameras 0, 2, and 3
-            camera1_params = load_config(1, base_path, Date)
+            if scene == scene:
+                
+                object_data = np.concatenate([data['angle'], data['trans']])            
+                object_data_list.append(object_data)              
 
-            # For Camera 0
-            cam0_params = camera1_params
-            reprojected_cam0 = transform_object_to_camera_frame(object_data, camera1_params, cam0_params)
-            reprojected_cam0_list.append(reprojected_cam0.flatten())
-            
-            # For Camera 2
-            cam2_params = camera1_params
-            reprojected_cam2 = transform_object_to_camera_frame(object_data, camera1_params, cam2_params)
-            reprojected_cam2_list.append(reprojected_cam2.flatten())
-            
-            # For Camera 3
-            cam3_params = camera1_params
-            reprojected_cam3 = transform_object_to_camera_frame(object_data, camera1_params, cam3_params)
-            reprojected_cam3_list.append(reprojected_cam3.flatten())
-            
-            identifier = filename.split('/')[6]
-            identifiers.append(identifier)
+                if prev_object_data is not None:
+                    offset_angles = object_data[:3] - prev_object_data[:3]
+                    offset_trans = object_data[-3:] - prev_object_data[-3:]
+                    offsets = np.concatenate([offset_angles, offset_trans])
+                    prev_object_data = object_data
+                else:
+                    # Same-initialization
+                    offsets = object_data
+                    prev_object_data = object_data
 
-            #object_data = np.concatenate([data['angle'], data['trans']])
-            #object_data = np.concatenate([data['trans']])
-            # object_data = np.concatenate([data['angle']])
-            # object_data_list = []
-            # object_data_list.append(object_data)
+                    # Zero-initialization
+                    # offsets = np.zeros((6))
+                    # prev_object_data = np.zeros((6))             
 
-        return object_data_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
+                object_data_1_list.append(offsets)
+                
+                # Reproject to cameras 0, 2, and 3
+                camera1_params = load_config(1, base_path, Date)
+
+                # For Camera 0
+                cam0_params = camera1_params
+                reprojected_cam0 = transform_object_to_camera_frame(offsets, camera1_params, cam0_params)
+                reprojected_cam0_list.append(reprojected_cam0.flatten())
+                
+                # For Camera 2
+                cam2_params = camera1_params
+                reprojected_cam2 = transform_object_to_camera_frame(offsets, camera1_params, cam2_params)
+                reprojected_cam2_list.append(reprojected_cam2.flatten())
+                
+                # For Camera 3
+                cam3_params = camera1_params
+                reprojected_cam3 = transform_object_to_camera_frame(offsets, camera1_params, cam3_params)
+                reprojected_cam3_list.append(reprojected_cam3.flatten())
+                
+                identifier = filename.split('/')[6]
+                identifiers.append(identifier)
+
+            else:
+
+                prev_object_data = None
+
+                object_data = np.concatenate([data['angle'], data['trans']])            
+                object_data_list.append(object_data)              
+
+                if prev_object_data is not None:
+                    offset_angles = object_data[:3] - prev_object_data[:3]
+                    offset_trans = object_data[-3:] - prev_object_data[-3:]
+                    offsets = np.concatenate([offset_angles, offset_trans])
+                    prev_object_data = object_data
+                else:
+                    offsets = object_data
+                    prev_object_data = object_data
+
+                object_data_1_list.append(offsets)
+                
+                # Reproject to cameras 0, 2, and 3
+                camera1_params = load_config(1, base_path, Date)
+
+                # For Camera 0
+                cam0_params = camera1_params
+                reprojected_cam0 = transform_object_to_camera_frame(offsets, camera1_params, cam0_params)
+                reprojected_cam0_list.append(reprojected_cam0.flatten())
+                
+                # For Camera 2
+                cam2_params = camera1_params
+                reprojected_cam2 = transform_object_to_camera_frame(offsets, camera1_params, cam2_params)
+                reprojected_cam2_list.append(reprojected_cam2.flatten())
+                
+                # For Camera 3
+                cam3_params = camera1_params
+                reprojected_cam3 = transform_object_to_camera_frame(offsets, camera1_params, cam3_params)
+                reprojected_cam3_list.append(reprojected_cam3.flatten())
+                
+                identifier = filename.split('/')[6]
+                identifiers.append(identifier)
+
+        return object_data_1_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
 
     # Update to the BehaveDataset class
     class BehaveDataset(Dataset):
@@ -311,7 +367,7 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
         def train_dataloader(self):
             train_dataset = Subset(self.dataset, self.train_indices)
-            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)
 
         def val_dataloader(self):
             # Assuming validation set is not provided, so using test set as validation
@@ -322,7 +378,7 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
             test_dataset = Subset(self.dataset, self.test_indices)
             return DataLoader(test_dataset, batch_size=self.batch_size)
 
-    # 3. MLP Model
+            # 3. MLP Model
     class MLP(pl.LightningModule):
 
         def __init__(self, input_dim, output_dim):
@@ -446,18 +502,27 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
             return [optimizer], [scheduler]
 
     # 4. Training using PyTorch Lightnings
+
     # Integrating the loading and dataset creation
+
     behave_seq = '/scratch_net/biwidl307_second/lgermano/behave/sequences'
     base_path = '/scratch_net/biwidl307_second/lgermano/behave'
     ground_SMPL_list, reprojected_smpl_cam0, reprojected_smpl_cam2, reprojected_smpl_cam3, ground_SMPL_identifiers = load_ground_truth_SMPL(behave_seq, base_path)
     object_data_list, reprojected_obj_cam0, reprojected_obj_cam2, reprojected_obj_cam3, object_data_identifiers = load_object_data(behave_seq, base_path)
-    input_dim = ground_SMPL_list[0].shape[0]
-    #output_dim = object_data_list[0].shape[0]
-    output_dim = 3
+    
+    #only predict trans
+    object_data_list = [arr[-3:] for arr in object_data_list]
+    reprojected_obj_cam0 = [arr[-3:] for arr in reprojected_obj_cam0]
+    reprojected_obj_cam2 = [arr[-3:] for arr in reprojected_obj_cam2]
+    reprojected_obj_cam3 = [arr[-3:] for arr in reprojected_obj_cam3]
 
     # Ensure the identifiers from both lists match
     assert ground_SMPL_identifiers == object_data_identifiers
 
+    input_dim = ground_SMPL_list[0].shape[0]
+    output_dim = object_data_list[0].shape[0]
+    print(input_dim)
+    print(output_dim)
     dataset = BehaveDataset(ground_SMPL_list, reprojected_smpl_cam0, reprojected_smpl_cam2, reprojected_smpl_cam3, object_data_list, reprojected_obj_cam0, reprojected_obj_cam2, reprojected_obj_cam3, object_data_identifiers)
 
     path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
@@ -500,10 +565,10 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
     trainer.test(model, datamodule=data_module)
 
     # Save the model using WandB run ID
-    #filename = f"/scratch_net/biwidl307/lgermano/crossvit/trained_models/model_{wandb.run.name}.pt"
+    filename = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/model_offset_trans_{wandb.run.name}.pt"
 
     # Save the model
-    #torch.save(model, filename)
+    torch.save(model, filename)
 
     # Finish the current W&B run
     wandb.finish()
