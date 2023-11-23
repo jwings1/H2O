@@ -45,7 +45,7 @@ os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/
 # learning_rate_range = [1e-5]
 # batch_size_range = [64]
 # dropout_rate_range = [0.1]
-learning_rate_range = [5e-3, 1e-2, 5e-2]
+learning_rate_range = [5e-3]#, 1e-2, 5e-2]
 batch_size_range = [8]
 dropout_rate_range = [0.1]
 layer_sizes_range = [
@@ -53,18 +53,19 @@ layer_sizes_range = [
     # [256, 256, 128, 128, 64], 
     # [512, 512, 256, 256, 128], 
     # [1024, 1024, 512, 512, 256],
-    [256, 256, 256, 128, 64, 32],
+    #[256, 256, 256, 128, 64, 32],
     # [512, 512, 512, 256, 128, 64],
     # [1024, 1024, 1024, 512, 256, 128],
     # [128, 128, 128, 64, 64, 32, 32]
-]
     #[128, 128, 64, 64, 32],
     #[4096, 4096, 4096, 2048, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64],
-    #[8192, 4096, 4096, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64],
+    [8192, 4096, 4096, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64],
     #[8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64]
     #[8192, 8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64],
     #[8192, 8192, 8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64, 32]
     #[8192, 8192, 8192, 8192, 8192, 4096, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64]
+
+]
 
 EPOCHS = 100
 best_val_loss = float('inf')
@@ -166,6 +167,7 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         reprojected_cam3_list = []
         paths = []
         identifiers = []
+        prev_smpl_data = None
 
         for filename in glob.iglob(os.path.join(ground_path, '**', 'person', 'fit02', 'person_fit.pkl'), recursive=True):
             paths.append(filename)
@@ -175,33 +177,102 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         for filename in paths:
             with open(filename, 'rb') as file:
                 data = pickle.load(file)
-            SMPL_ground = np.concatenate([data['pose'][:72], data['trans']])
-            ground_SMPL_list.append(SMPL_ground)
 
             Date = filename.split('/')[6].split('_')[0]
+            scene = filename.split('/')[6].split('_')[2:]
 
-            # Reproject to cameras 0, 2, and 3
-            camera1_params = load_config(1, base_path, Date)
-            pose = data['pose'][:72]
-            trans = data['trans']
-            
-            # For Camera 0
-            cam0_params = load_config(0, base_path, Date)
-            reprojected_cam0 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam0_params)
-            reprojected_cam0_list.append(reprojected_cam0.flatten())
-            
-            # For Camera 2
-            cam2_params = load_config(2, base_path, Date)
-            reprojected_cam2 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam2_params)
-            reprojected_cam2_list.append(reprojected_cam2.flatten())
-            
-            # For Camera 3
-            cam3_params = load_config(3, base_path, Date)
-            reprojected_cam3 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam3_params)
-            reprojected_cam3_list.append(reprojected_cam3.flatten())
-            
-            identifier = filename.split('/')[6]
-            identifiers.append(identifier)
+            if scene == scene:
+                
+                smpl_data = np.concatenate([data['pose'][:72], data['trans']])
+           
+
+                if prev_smpl_data is not None:
+                    offset_pose = smpl_data[:72] - prev_smpl_data[:72]
+                    offset_trans = smpl_data[-3:] - prev_smpl_data[-3:]
+                    offsets = np.concatenate([offset_pose, offset_trans])
+                    prev_smpl_data = smpl_data
+                else:
+                    # Same-initialization
+                    offsets = smpl_data
+                    prev_smpl_data = smpl_data
+
+                    # Zero-initialization
+                    # offsets = np.zeros((75))
+                    # prev_smpl_data = np.zeros((75))             
+
+                #object_data_1_list.append(offsets)
+                ground_SMPL_list.append(offsets)
+                
+                pose = offsets[:72]
+                trans = offsets[-3:]
+                
+                # Reproject to cameras 0, 2, and 3
+                camera1_params = load_config(1, base_path, Date)
+
+                # For Camera 0
+                cam0_params = load_config(0, base_path, Date)
+                reprojected_cam0 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam0_params)
+                reprojected_cam0_list.append(reprojected_cam0.flatten())
+                
+                # For Camera 2
+                cam2_params = load_config(2, base_path, Date)
+                reprojected_cam2 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam2_params)
+                reprojected_cam2_list.append(reprojected_cam2.flatten())
+                
+                # For Camera 3
+                cam3_params = load_config(3, base_path, Date)
+                reprojected_cam3 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam3_params)
+                reprojected_cam3_list.append(reprojected_cam3.flatten())
+                
+                identifier = filename.split('/')[6]
+                identifiers.append(identifier)
+
+            else:
+
+                prev_object_data = None
+
+                smpl_data = np.concatenate([data['pose'][:72], data['trans']])
+           
+                if prev_smpl_data is not None:
+                    offset_pose = smpl_data[:72] - prev_smpl_data[:72]
+                    offset_trans = smpl_data[-3:] - prev_smpl_data[-3:]
+                    offsets = np.concatenate([offset_pose, offset_trans])
+                    prev_smpl_data = smpl_data
+                else:
+                    # Same-initialization
+                    offsets = smpl_data
+                    prev_smpl_data = smpl_data
+
+                    # Zero-initialization
+                    # offsets = np.zeros((75))
+                    # prev_smpl_data = np.zeros((75))             
+
+                #object_data_1_list.append(offsets)
+                ground_SMPL_list.append(offsets)
+                
+                pose = offsets[:72]
+                trans = offsets[-3:]
+                
+                # Reproject to cameras 0, 2, and 3
+                camera1_params = load_config(1, base_path, Date)
+
+                # For Camera 0
+                cam0_params = load_config(0, base_path, Date)
+                reprojected_cam0 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam0_params)
+                reprojected_cam0_list.append(reprojected_cam0.flatten())
+                
+                # For Camera 2
+                cam2_params = load_config(2, base_path, Date)
+                reprojected_cam2 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam2_params)
+                reprojected_cam2_list.append(reprojected_cam2.flatten())
+                
+                # For Camera 3
+                cam3_params = load_config(3, base_path, Date)
+                reprojected_cam3 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam3_params)
+                reprojected_cam3_list.append(reprojected_cam3.flatten())
+                
+                identifier = filename.split('/')[6]
+                identifiers.append(identifier)
 
         return ground_SMPL_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
 
@@ -230,7 +301,17 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
             if scene == scene:
                 
-                object_data = np.concatenate([data['angle'], data['trans']])            
+
+                # Change the origin of the object to the pelvis. That is compute the distance obj-pelvis in cam1, and pose offset wrt global orientation.
+                # When reproject you sum the reprojected pelvis to the root as vectors, and sum the pose offset to the reproj global orientation.
+                object_data = np.concatenate([data['angle'], data['trans']])
+                delta_pose = smpl['pose'][:3] - data['angle'] 
+                delta_trans = smpl['trans'] - data['trans']
+                object_data = np.concatenate([delta_pose, delta_trans])
+
+
+                # No need to reproject!
+                         
                 object_data_list.append(object_data)              
 
                 if prev_object_data is not None:

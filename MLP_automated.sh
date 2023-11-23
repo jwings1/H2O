@@ -44,7 +44,7 @@ export WANDB_CACHE_DIR=/scratch_net/biwidl307/lgermano/crossvit/wandb/cache
 
 
 #tensorboard --logdir=logs/ #--host 129.132.67.159
-python /scratch_net/biwidl307/lgermano/H2O/MLP_augmented_distances.py
+python /scratch_net/biwidl307/lgermano/H2O/MLP_offset_trans_offset_smpl_augmentation_automated.py
 
 echo "DONE!"
 

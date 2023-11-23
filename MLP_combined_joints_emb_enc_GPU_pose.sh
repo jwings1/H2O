@@ -1,10 +1,9 @@
 #!/bin/bash
 
-##SBATCH --mail-type=ALL                           # mail configuration: NONE, BEGIN, END, FAIL, REQUEUE, ALL
-#SBATCH --job-name="MLP"
+#SBATCH --job-name="rendering"
 #SBATCH --error=/scratch_net/biwidl307/lgermano/H2O/log/error/%j.err
 #SBATCH --output=/scratch_net/biwidl307/lgermano/H2O/log/out/%j.out
-#SBATCH --mem=50G
+#SBATCH --mem=30G
 #SBATCH --gres=gpu:1
 
 TMPDIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
@@ -20,36 +19,26 @@ trap 'rm -rf "${TMPDIR}"' EXIT
 export TMPDIR
 
 # Change the current directory to the location where you want to store temporary files, exit if changing didn't succeed.
-# Adapt this to your personal preference
 cd "${TMPDIR}" || exit 1
 
-# Send some noteworthy information to the output log
 echo "Running on node: $(hostname)"
 echo "In directory:    $(pwd)"
 echo "Starting on:     $(date)"
 echo "SLURM_JOB_ID:    ${SLURM_JOB_ID}"
 
 source /itet-stor/lgermano/net_scratch/conda/etc/profile.d/conda.sh
-# conda create -n crossvit pytorch torchvision pytorch-cuda --channel pytorch --channel nvidia
-# conda activate crossvit
-# pip install transformers tensorboard
-# cd /scratch_net/biwidl307/lgermano/crossvit
 
-conda activate crossvit
+conda activate render
 
+export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHONPATH
 export CONDA_OVERRIDE_CUDA=11.8
-export WANDB_API_KEY=34beceb95e6defe789ceb3b540d17ee92a24fd46
-export WANDB_DIR=/scratch_net/biwidl307/lgermano/crossvit/wandb
-export WANDB_CACHE_DIR=/scratch_net/biwidl307/lgermano/crossvit/wandb/cache
 
+#python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
+python /scratch_net/biwidl307/lgermano/H2O/MLP_combined_joints_emb_enc_GPU_pose.py
 
-#tensorboard --logdir=logs/ #--host 129.132.67.159
-python /scratch_net/biwidl307/lgermano/H2O/MLP_augmented_distances.py
 
 echo "DONE!"
 
-# Send more noteworthy information to the output log
 echo "Finished at:     $(date)"
 
-# End the script with exit code 0
 exit 0

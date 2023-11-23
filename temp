@@ -1,0 +1,12 @@
+    # Initialize an instance of CombinedMLP
+    model_combined = CombinedMLP(input_dim, output_stage1, input_stage2, output_stage2, input_stage3, output_dim)
+    #print({k: v.shape for k, v in model_combined.state_dict().items()})
+
+    # Specify the path to the checkpoint
+    model_path = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/pos_enc/model_lunar-microwave-1989_epoch_5.pt"
+
+    # Load the state dict from the checkpoint into the model
+    checkpoint = torch.load(model_path)
+    # After loading the checkpoint
+    # print({k: v.shape for k, v in checkpoint.items()})
+    model_combined.load_state_dict(checkpoint['model'])

@@ -15,15 +15,18 @@ import datetime
 import random
 import itertools
 import datetime
+import scipy.spatial.transform as spt
+import torch.nn as nn
+
 
 # Set the WANDB_CACHE_DIR environment variable
 os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/cache'
 
 # Random Search
 # # Define expanded ranges for your hyperparameters
-#learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
+#learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4]#, 1e-3, 5e-3, 1e-2, 5e-2]
 # batch_size_range = [8, 16, 32, 64, 128, 256]
-# dropout_rate_range = [0.05, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7]
+#dropout_rate_range = [0.05, 0.1, 0.3, 0.4, 0.5, 0.6, 0.7]
 # layer_sizes_range = [
 #     [128, 128, 64, 64, 32],
 #     [256, 256, 128, 128, 64], 
@@ -39,25 +42,24 @@ os.environ['WANDB_CACHE_DIR'] = '/scratch_net/biwidl307/lgermano/crossvit/wandb/
 # N_TRIALS = 20
 # EPOCHS = 300
 
-# learning_rate_range = [1e-5, 1e-4]
-# batch_size_range = [64, 128]
-# dropout_rate_range = [0.1, 0.2]
+learning_rate_range = [5e-3]
+#batch_size_range = [54]
+dropout_rate_range = [0.1]#0.7]
 # learning_rate_range = [1e-5]
-# batch_size_range = [64]
+batch_size_range = [512]
 # dropout_rate_range = [0.1]
-learning_rate_range = [5e-3, 1e-2, 5e-2]
-batch_size_range = [8]
-dropout_rate_range = [0.1]
+#learning_rate_range = [5e-2]
+#batch_size_range = [32]
+#dropout_rate_range = [0.0,0.1]
 layer_sizes_range = [
     #[128, 128, 64, 64, 32],
     # [256, 256, 128, 128, 64], 
-    # [512, 512, 256, 256, 128], 
-    # [1024, 1024, 512, 512, 256],
-    [256, 256, 256, 128, 64, 32],
-    # [512, 512, 512, 256, 128, 64],
-    # [1024, 1024, 1024, 512, 256, 128],
+    [512, 512, 256, 256, 128], 
+    #[1024, 1024, 512, 512, 256],
+    #[256, 256, 256, 128, 64, 32],
+    #[512, 512, 512, 256, 128, 64],
+    #[1024, 1024, 1024, 512, 256, 128],
     # [128, 128, 128, 64, 64, 32, 32]
-]
     #[128, 128, 64, 64, 32],
     #[4096, 4096, 4096, 2048, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64],
     #[8192, 4096, 4096, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64],
@@ -66,7 +68,9 @@ layer_sizes_range = [
     #[8192, 8192, 8192, 8192, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 512, 512, 256, 128, 64, 32]
     #[8192, 8192, 8192, 8192, 8192, 4096, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64]
 
-EPOCHS = 100
+]
+
+EPOCHS = 500
 best_val_loss = float('inf')
 best_params = None
 
@@ -104,6 +108,10 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
         with open(path, 'r') as file:
             split_dict = json.load(file)
         return split_dict
+    
+    def geodesic_loss(r1, r2):
+        """Compute the geodesic distance between two axis-angle representations."""
+        return torch.min(torch.norm(r1 - r2, dim=-1), torch.norm(r1 + r2, dim=-1)).mean()
 
     def transform_smpl_to_camera_frame(pose, trans, camera1_params, cam_params):
         # Convert axis-angle representation to rotation matrix
@@ -158,163 +166,180 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
         return np.concatenate([transformed_trans])
 
-    # Modified function to load ground truth SMPL with reprojections
-    def load_ground_truth_SMPL(ground_path, base_path):
-        ground_SMPL_list = []
-        reprojected_cam0_list = []
-        reprojected_cam2_list = []
-        reprojected_cam3_list = []
-        paths = []
+    def project_frames(interpolated_data_frames):
+        
+        reprojected_smpl_cam1_list = []
+        reprojected_smpl_cam0_list = []
+        reprojected_smpl_cam2_list = []
+        reprojected_smpl_cam3_list = []
+
+        reprojected_obj_cam1_list = []
+        reprojected_obj_cam0_list = []
+        reprojected_obj_cam2_list = []
+        reprojected_obj_cam3_list = []
+        
         identifiers = []
 
-        for filename in glob.iglob(os.path.join(ground_path, '**', 'person', 'fit02', 'person_fit.pkl'), recursive=True):
-            paths.append(filename)
-
-        paths = sorted(paths)
+        prev_smpl_data = None                
+        Date = 'Date01'
         
-        for filename in paths:
-            with open(filename, 'rb') as file:
-                data = pickle.load(file)
-            SMPL_ground = np.concatenate([data['pose'][:72], data['trans']])
-            ground_SMPL_list.append(SMPL_ground)
+        # Process interpolated frames
+        for idx, frame_data in enumerate(interpolated_data_frames):
 
-            Date = filename.split('/')[6].split('_')[0]
+            pose = frame_data['pose']
+            trans = frame_data['trans']
+            obj_pose = frame_data['obj_pose']
+            obj_trans = frame_data['obj_trans']
+                          
+            smpl_data = np.concatenate([pose[:72], trans])
+            object_data = np.concatenate([obj_pose, obj_trans])               
+            
+            ###########################
+            #NOT PREDICTING OFFSETS add and False
+            ###########################
 
+            if prev_smpl_data is not None and False:
+                offset_pose_smpl = smpl_data[:72] - prev_smpl_data[:72]
+                offset_trans_smpl = smpl_data[-3:] - prev_smpl_data[-3:]
+                offsets_smpl = np.concatenate([offset_pose_smpl, offset_trans_smpl])
+                prev_smpl_data = smpl_data
+
+
+                offset_pose_obj = object_data[:3] - prev_object_data[:3]
+                offset_trans_obj = object_data[-3:] - prev_object_data[-3:]
+                offsets_obj = np.concatenate([offset_pose_obj, offset_trans_obj])
+                prev_object_data = object_data
+            else:
+                # Same-initialization
+                offsets_smpl = smpl_data
+                prev_smpl_data = smpl_data
+
+                # Same-initialization
+                offsets_obj = object_data
+                prev_object_data = object_data
+
+                # Zero-initialization
+                # offsets = np.zeros((75))
+                # prev_smpl_data = np.zeros((75))
+                # offsets = np.zeros((6))
+                # prev_object_data = np.zeros((6))    
+                            
+            reprojected_smpl_cam1_list.append(offsets_smpl)
+            reprojected_obj_cam1_list.append(offsets_obj)
+            
+            pose = offsets_smpl[:72]
+            trans = offsets_smpl[-3:]
+            #pose and trans!
+            pose_obj = offsets_obj
+            
             # Reproject to cameras 0, 2, and 3
             camera1_params = load_config(1, base_path, Date)
-            pose = data['pose'][:72]
-            trans = data['trans']
-            
+
             # For Camera 0
             cam0_params = load_config(0, base_path, Date)
             reprojected_cam0 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam0_params)
-            reprojected_cam0_list.append(reprojected_cam0.flatten())
+            reprojected_smpl_cam0_list.append(reprojected_cam0.flatten())
+
+            reprojected_cam0_obj = transform_object_to_camera_frame(pose_obj, camera1_params, cam0_params)
+            reprojected_obj_cam0_list.append(reprojected_cam0_obj.flatten())
             
             # For Camera 2
             cam2_params = load_config(2, base_path, Date)
             reprojected_cam2 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam2_params)
-            reprojected_cam2_list.append(reprojected_cam2.flatten())
+            reprojected_smpl_cam2_list.append(reprojected_cam2.flatten())
+
+            reprojected_cam2_obj = transform_object_to_camera_frame(pose_obj, camera1_params, cam2_params)
+            reprojected_obj_cam2_list.append(reprojected_cam2_obj.flatten())
             
             # For Camera 3
             cam3_params = load_config(3, base_path, Date)
             reprojected_cam3 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam3_params)
-            reprojected_cam3_list.append(reprojected_cam3.flatten())
+            reprojected_smpl_cam3_list.append(reprojected_cam3.flatten())
+
+            reprojected_cam3_obj = transform_object_to_camera_frame(pose_obj, camera1_params, cam3_params)
+            reprojected_obj_cam3_list.append(reprojected_cam3_obj.flatten())
             
-            identifier = filename.split('/')[6]
+            #identifier = filename.split('/')[6]
+            identifier = "Date01_Sub01_backpack_back"
             identifiers.append(identifier)
 
-        return ground_SMPL_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
+        return reprojected_smpl_cam1_list, reprojected_smpl_cam0_list, reprojected_smpl_cam2_list, reprojected_smpl_cam3_list, reprojected_obj_cam1_list, \
+            reprojected_obj_cam0_list, reprojected_obj_cam2_list, reprojected_obj_cam3_list, identifiers
+    
+    def linear_interpolate(value1, value2, i):
+        return value1 + (i/3) * (value2 - value1)
+    
+    def slerp(p0, p1, t):
+        # Convert axis-angle to quaternion
+        q0 = spt.Rotation.from_rotvec(p0).as_quat()
+        q1 = spt.Rotation.from_rotvec(p1).as_quat()
+        
+        # Normalize quaternions
+        q0 = q0 / np.linalg.norm(q0)
+        q1 = q1 / np.linalg.norm(q1)
+        
+        # SLERP
+        cosine = np.dot(q0, q1)
+        
+        # Ensure the shortest path is taken
+        if cosine < 0.0:
+            q1 = -q1
+            cosine = -cosine
+            
+        # If q0 and q1 are very close, use linear interpolation as an approximation
+        if abs(cosine) >= 1.0 - 1e-10:
+            return p0 + t * (p1 - p0)
 
-    def load_object_data(object_path, base_path):
+        omega = np.arccos(cosine)
+        so = np.sin(omega)
+        res_quat = (np.sin((1.0-t)*omega) / so) * q0 + (np.sin(t*omega)/so) * q1
+        
+        # Convert quaternion back to axis-angle
+        res_rotvec = spt.Rotation.from_quat(res_quat).as_rotvec()
+        return res_rotvec
+  
+    def slerp_rotations(p0, p1, t):
+        num_joints = len(p0) // 3
+        interpolated_rotations = np.empty_like(p0)
 
-        object_data_list = []
-        reprojected_cam0_list = []
-        reprojected_cam2_list = []
-        reprojected_cam3_list = []
-        paths = []
-        identifiers = []
-        object_data_1_list = []             
-        object_offsets = []
-        prev_object_data = None
+        for i in range(num_joints):
+            start_idx = i * 3
+            end_idx = (i + 1) * 3
+            
+            joint_rot0 = p0[start_idx:end_idx]
+            joint_rot1 = p1[start_idx:end_idx]
+            
+            interpolated_rot = slerp(joint_rot0, joint_rot1, t)
+            interpolated_rotations[start_idx:end_idx] = interpolated_rot
 
-        for filename in glob.iglob(os.path.join(object_path, '**', '*', 'fit01', '*_fit.pkl'), recursive=True):
-            paths.append(filename)
+        return interpolated_rotations
 
-        paths = sorted(paths)
-        for filename in paths:
-            with open(filename, 'rb') as file:
-                data = pickle.load(file)
+    def interpolate_frames(all_data_frames):
+        interpolated_frames = []
 
-            Date = filename.split('/')[6].split('_')[0]
-            scene = filename.split('/')[6].split('_')[2:]
+        for idx in range(len(all_data_frames)-1):
+            frame1 = all_data_frames[idx]
+            frame2 = all_data_frames[idx+1]
 
-            if scene == scene:
+            # Original frame
+            interpolated_frames.append(frame1)
+
+            # Interpolated frames
+            # No interpolation!!!!!
+            for i in range(5, 5):
+                interpolated_frame = frame1.copy()
+                t = i / 5.0  # Assuming you want to interpolate at 1/3 and 2/3 positions between frame1 and frame2
+                interpolated_frame['pose'] = slerp_rotations(frame1['pose'], frame2['pose'], t)
+                interpolated_frame['trans'] = linear_interpolate(frame1['trans'], frame2['trans'], t)
+                interpolated_frame['obj_pose'] = slerp_rotations(frame1['obj_pose'], frame2['obj_pose'], t)
+                interpolated_frame['obj_trans'] = linear_interpolate(frame1['obj_trans'], frame2['obj_trans'], t)
                 
-                object_data = np.concatenate([data['angle'], data['trans']])            
-                object_data_list.append(object_data)              
+                interpolated_frames.append(interpolated_frame)            
 
-                if prev_object_data is not None:
-                    offset_angles = object_data[:3] - prev_object_data[:3]
-                    offset_trans = object_data[-3:] - prev_object_data[-3:]
-                    offsets = np.concatenate([offset_angles, offset_trans])
-                    prev_object_data = object_data
-                else:
-                    # Same-initialization
-                    offsets = object_data
-                    prev_object_data = object_data
+        # Adding the last original frame
+        interpolated_frames.append(all_data_frames[-1])
 
-                    # Zero-initialization
-                    # offsets = np.zeros((6))
-                    # prev_object_data = np.zeros((6))             
-
-                object_data_1_list.append(offsets)
-                
-                # Reproject to cameras 0, 2, and 3
-                camera1_params = load_config(1, base_path, Date)
-
-                # For Camera 0
-                cam0_params = load_config(0, base_path, Date)
-                reprojected_cam0 = transform_object_to_camera_frame(offsets, camera1_params, cam0_params)
-                reprojected_cam0_list.append(reprojected_cam0.flatten())
-                
-                # For Camera 2
-                cam2_params = load_config(2, base_path, Date)
-                reprojected_cam2 = transform_object_to_camera_frame(offsets, camera1_params, cam2_params)
-                reprojected_cam2_list.append(reprojected_cam2.flatten())
-                
-                # For Camera 3
-                cam3_params = load_config(3, base_path, Date)
-                reprojected_cam3 = transform_object_to_camera_frame(offsets, camera1_params, cam3_params)
-                reprojected_cam3_list.append(reprojected_cam3.flatten())
-                
-                identifier = filename.split('/')[6]
-                identifiers.append(identifier)
-
-            else:
-
-                prev_object_data = None
-
-                object_data = np.concatenate([data['angle'], data['trans']])            
-                object_data_list.append(object_data)              
-
-                if prev_object_data is not None:
-                    offset_angles = object_data[:3] - prev_object_data[:3]
-                    offset_trans = object_data[-3:] - prev_object_data[-3:]
-                    offsets = np.concatenate([offset_angles, offset_trans])
-                    prev_object_data = object_data
-                else:
-                    # Same-initialization
-                    offsets = object_data
-                    prev_object_data = object_data
-
-                    # Zero-initialization
-                    # offsets = np.zeros((6))
-                    # prev_object_data = np.zeros((6))             
-
-                object_data_1_list.append(offsets)
-                
-                # Reproject to cameras 0, 2, and 3
-                camera1_params = load_config(1, base_path, Date)
-
-                # For Camera 0
-                cam0_params = load_config(0, base_path, Date)
-                reprojected_cam0 = transform_object_to_camera_frame(offsets, camera1_params, cam0_params)
-                reprojected_cam0_list.append(reprojected_cam0.flatten())
-                
-                # For Camera 2
-                cam2_params = load_config(2, base_path, Date)
-                reprojected_cam2 = transform_object_to_camera_frame(offsets, camera1_params, cam2_params)
-                reprojected_cam2_list.append(reprojected_cam2.flatten())
-                
-                # For Camera 3
-                cam3_params = load_config(3, base_path, Date)
-                reprojected_cam3 = transform_object_to_camera_frame(offsets, camera1_params, cam3_params)
-                reprojected_cam3_list.append(reprojected_cam3.flatten())
-                
-                identifier = filename.split('/')[6]
-                identifiers.append(identifier)
-
-        return object_data_1_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
+        return interpolated_frames
 
     # Update to the BehaveDataset class
     class BehaveDataset(Dataset):
@@ -370,7 +395,7 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
         def train_dataloader(self):
             train_dataset = Subset(self.dataset, self.train_indices)
-            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)
+            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
 
         def val_dataloader(self):
             # Assuming validation set is not provided, so using test set as validation
@@ -399,6 +424,8 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
             # Dropout layer
             self.dropout = torch.nn.Dropout(wandb.config.dropout_rate)
 
+            self.leaky_relu = nn.LeakyReLU(0.01) 
+
             # He initialization
             for m in self.modules():
                 if isinstance(m, torch.nn.Linear):
@@ -409,28 +436,42 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
             self.validation_losses = []
 
         def forward(self, x):
-            for i, linear in enumerate(self.linears[:-1]):  # Exclude the last linear layer
+            for i, linear in enumerate(self.linears[:-1]):
                 x = linear(x)
-                if i < len(self.bns):  # Apply batch normalization only if available
-                    x = self.bns[i](x)
-                x = self.dropout(F.relu(x))
-            
-            # Last linear layer without activation
+                if i < len(self.bns):
+                    x = self.bns[i](x)  # Batch normalization before activation
+                x = F.relu(x)  # Activation function
+                x = self.dropout(x)
+                
             x = self.linears[-1](x)
-            
             return x
 
         def training_step(self, batch, batch_idx):
             x, x_cam0, x_cam2, x_cam3, y, y_cam0, y_cam2, y_cam3, _ = batch
+            
+            # Compute the predictions
             y_hat = self(x)
-            loss_original = F.mse_loss(y_hat, y)
             y_hat_cam0 = self(x_cam0)
-            loss_cam0 = F.mse_loss(y_hat_cam0, y_cam0)
             y_hat_cam2 = self(x_cam2)
-            loss_cam2 = F.mse_loss(y_hat_cam2, y_cam2)
             y_hat_cam3 = self(x_cam3)
+            
+            # # Compute the losses using geodesic distance
+            # loss_original = geodesic_loss(y_hat, y)
+            # loss_cam0 = geodesic_loss(y_hat_cam0, y_cam0)
+            # loss_cam2 = geodesic_loss(y_hat_cam2, y_cam2)
+            # loss_cam3 = geodesic_loss(y_hat_cam3, y_cam3)
+
+
+            # Compute the losses using Mean Squared Error (MSE) - trans
+            loss_original = F.mse_loss(y_hat, y)
+            loss_cam0 = F.mse_loss(y_hat_cam0, y_cam0)
+            loss_cam2 = F.mse_loss(y_hat_cam2, y_cam2)
             loss_cam3 = F.mse_loss(y_hat_cam3, y_cam3)
+            
+            # Average the losses
             avg_loss = (loss_original + loss_cam0 + loss_cam2 + loss_cam3) / 4
+            
+            # Log the average loss
             wandb.log({"loss_train": avg_loss.item()})#, step=self.current_epoch)       
             self.manual_backward(avg_loss)
             optimizer = self.optimizers()
@@ -506,28 +547,83 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
 
     # 4. Training using PyTorch Lightnings
 
-    # Integrating the loading and dataset creation
+    base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+    ############## USING A SUBSET - BACKPACK UP ######################
+    all_files = sorted(glob.glob(os.path.join(base_path, "sequences", "Date01_Sub01_backpack_back", "t*.000")))
+    selected_files = all_files[:13] + all_files[19:26] + all_files[34:]
 
-    behave_seq = '/scratch_net/biwidl307_second/lgermano/behave/sequences/Date01_Sub01_backpack_back'
-    base_path = '/scratch_net/biwidl307_second/lgermano/behave'
-    ground_SMPL_list, reprojected_smpl_cam0, reprojected_smpl_cam2, reprojected_smpl_cam3, ground_SMPL_identifiers = load_ground_truth_SMPL(behave_seq, base_path)
-    object_data_list, reprojected_obj_cam0, reprojected_obj_cam2, reprojected_obj_cam3, object_data_identifiers = load_object_data(behave_seq, base_path)
     
-    #only predict trans
-    object_data_list = [arr[-3:] for arr in object_data_list]
-    reprojected_obj_cam0 = [arr[-3:] for arr in reprojected_obj_cam0]
-    reprojected_obj_cam2 = [arr[-3:] for arr in reprojected_obj_cam2]
-    reprojected_obj_cam3 = [arr[-3:] for arr in reprojected_obj_cam3]
+    print(f"Detected {len(selected_files)} frames.")
 
+    all_data_frames = []
+
+    # Gather data into all_data_frames
+    for idx, frame_folder in enumerate(selected_files):
+        frame_data = {}
+
+        frame_data['smpl_path'] = os.path.join(frame_folder, "person", "fit02", "person_fit.pkl")
+        object_name = "backpack"
+        frame_data['obj_path'] = os.path.join(frame_folder, object_name, "fit01", f"{object_name}_fit.pkl")
+        frame_data['scene'] = os.path.basename(frame_folder)
+
+        
+        smpl_data = load_pickle(frame_data['smpl_path'])
+        frame_data['pose'] = smpl_data['pose']
+        frame_data['trans'] = smpl_data['trans']
+        frame_data['betas'] = smpl_data['betas']
+
+        obj_data = load_pickle(frame_data['obj_path'])
+        frame_data['obj_pose'] = obj_data['angle']
+        frame_data['obj_trans'] = obj_data['trans']
+        
+        image_paths = {
+            1: os.path.join(frame_folder, "k1.color.jpg"),
+            2: os.path.join(frame_folder, "k2.color.jpg"),
+            0: os.path.join(frame_folder, "k0.color.jpg"),
+            3: os.path.join(frame_folder, "k3.color.jpg")
+        }
+                    
+        frame_data['img'] = image_paths
+            
+        all_data_frames.append(frame_data)
+
+    # Interpolate frames
+    interpolated_data_frames = interpolate_frames(all_data_frames)
+    
+    reprojected_smpl_cam1_list, reprojected_smpl_cam0_list, reprojected_smpl_cam2_list, reprojected_smpl_cam3_list, \
+    reprojected_obj_cam1_list, reprojected_obj_cam0_list, reprojected_obj_cam2_list, reprojected_obj_cam3_list, identifiers = project_frames(interpolated_data_frames)
+    
+    #Only predict trans
+    reprojected_obj_cam1_list = [arr[-3:] for arr in reprojected_obj_cam1_list]
+    reprojected_obj_cam0_list = [arr[-3:] for arr in reprojected_obj_cam0_list]
+    reprojected_obj_cam2_list = [arr[-3:] for arr in reprojected_obj_cam2_list]
+    reprojected_obj_cam3_list = [arr[-3:] for arr in reprojected_obj_cam3_list]
+
+    # # Only predict pose
+    # reprojected_obj_cam1_list = [arr[:3] for arr in reprojected_obj_cam1_list]
+    # reprojected_obj_cam0_list = [arr[:3] for arr in reprojected_obj_cam0_list]
+    # reprojected_obj_cam2_list = [arr[:3] for arr in reprojected_obj_cam2_list]
+    # reprojected_obj_cam3_list = [arr[:3] for arr in reprojected_obj_cam3_list]
+
+    # From smpl trans 
+    # reprojected_smpl_cam1_list = [arr[-3:] for arr in reprojected_smpl_cam1_list]
+    # reprojected_smpl_cam0_list = [arr[-3:] for arr in reprojected_smpl_cam0_list]
+    # reprojected_smpl_cam2_list = [arr[-3:] for arr in reprojected_smpl_cam2_list]
+    # reprojected_smpl_cam3_list = [arr[-3:] for arr in reprojected_smpl_cam3_list]
     # Ensure the identifiers from both lists match
-    assert ground_SMPL_identifiers == object_data_identifiers
+    #assert ground_SMPL_identifiers == object_data_identifiers
 
-    input_dim = ground_SMPL_list[0].shape[0]
-    output_dim = object_data_list[0].shape[0]
-    print(input_dim)
-    print(output_dim)
-    #dataset = BehaveDataset(ground_SMPL_list, reprojected_smpl_cam0, reprojected_smpl_cam2, reprojected_smpl_cam3, object_data_list, reprojected_obj_cam0, reprojected_obj_cam2, reprojected_obj_cam3, object_data_identifiers)
-    dataset = BehaveDataset(ground_SMPL_list, ground_SMPL_list, ground_SMPL_list, ground_SMPL_list, object_data_list, object_data_list, object_data_list, object_data_list, object_data_identifiers)
+    input_dim = reprojected_smpl_cam1_list[0].shape[0]
+    output_dim = reprojected_obj_cam1_list[0].shape[0]
+
+    ############## CAM 0-3 ###################################
+    # dataset = BehaveDataset(reprojected_smpl_cam1_list, reprojected_smpl_cam0_list, reprojected_smpl_cam2_list, reprojected_smpl_cam3_list, \
+    # reprojected_obj_cam1_list, reprojected_obj_cam0_list, reprojected_obj_cam2_list, reprojected_obj_cam3_list, identifiers)
+    
+    
+    ################## OVERFITTING ON CAM1 #######################
+    dataset = BehaveDataset(reprojected_smpl_cam1_list, reprojected_smpl_cam1_list, reprojected_smpl_cam1_list, reprojected_smpl_cam1_list, \
+     reprojected_obj_cam1_list, reprojected_obj_cam1_list, reprojected_obj_cam1_list, reprojected_obj_cam1_list, identifiers)
     
     path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
     split_dict = load_split_from_path(path_to_file)
@@ -569,7 +665,7 @@ for lr, bs, dr, layers in itertools.product(learning_rate_range, batch_size_rang
     trainer.test(model, datamodule=data_module)
 
     # Save the model using WandB run ID
-    filename = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/model_offset_trans_{wandb.run.name}.pt"
+    filename = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/model_offset_trans_smpl_augmented_{wandb.run.name}.pt"
 
     # Save the model
     torch.save(model, filename)

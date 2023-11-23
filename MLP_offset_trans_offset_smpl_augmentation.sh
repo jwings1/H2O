@@ -35,7 +35,7 @@ source /itet-stor/lgermano/net_scratch/conda/etc/profile.d/conda.sh
 # pip install transformers tensorboard
 # cd /scratch_net/biwidl307/lgermano/crossvit
 
-conda activate crossvit
+conda activate render
 
 export CONDA_OVERRIDE_CUDA=11.8
 export WANDB_API_KEY=34beceb95e6defe789ceb3b540d17ee92a24fd46
@@ -44,7 +44,7 @@ export WANDB_CACHE_DIR=/scratch_net/biwidl307/lgermano/crossvit/wandb/cache
 
 
 #tensorboard --logdir=logs/ #--host 129.132.67.159
-python /scratch_net/biwidl307/lgermano/H2O/MLP_augmented_distances.py
+python /scratch_net/biwidl307/lgermano/H2O/MLP_trilateration.py
 
 echo "DONE!"
 
