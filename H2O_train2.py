@@ -672,7 +672,7 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
         
         return relative_rotations
 
-    def evaluate_camera(cam_id, y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans, obj_template_path):
+    def evaluate_camera(y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans, obj_template_path):
         """
         Evaluate the performance metrics for a given camera.
 
@@ -724,9 +724,10 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
             nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
             e = nn_dists.mean()
             return e
-
-        transformed_object = plot_obj_in_camera_frame(y_hat_stage3_pos, y_hat_stage3_trans, obj_template_path)
-        GT_obj = plot_obj_in_camera_frame(y_stage3_pos, y_stage3_trans, obj_template_path)
+        
+        # only the first from the batch
+        transformed_object = plot_obj_in_camera_frame(y_hat_stage3_pos[0].cpu().numpy(), y_hat_stage3_trans[0].cpu().numpy(), obj_template_path)
+        GT_obj = plot_obj_in_camera_frame(y_stage3_pos[0].cpu().numpy(), y_stage3_trans[0].cpu().numpy(), obj_template_path)
 
         # Convert the meshes to point clouds
         GT_obj_pcd = o3d.geometry.PointCloud()
@@ -1252,13 +1253,13 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
             train_identifiers = []
             test_identifiers = []
 
-            for idx, data in enumerate(self.dataset.cam_data[0]):
-                if data['identifier'] in self.split['train']:
+            for idx, data in enumerate(self.dataset.cam_data[3]):
+                if data['scene'] in self.split['train']:
                     self.train_indices.append(idx)
-                    train_identifiers.append(data['identifier'])
-                elif data['identifier'] in self.split['test']:
+                    train_identifiers.append(data['scene'])
+                elif data['scene'] in self.split['test']:
                     self.test_indices.append(idx)
-                    test_identifiers.append(data['identifier'])
+                    test_identifiers.append(data['scene'])
 
             # Print the list of identifiers in the train and test set
             print(f"Identifiers in train set: {train_identifiers}")
@@ -1541,9 +1542,9 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
             self.lr_scheduler.step(avg_val_loss)  # Update
 
             for cam_id in range(4):
-                auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), self.max_th) * 100
-                auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), self.max_th) * 100
-                cd_mean = sum(all_CD_values[cam_id]) / len(all_CD_values[cam_id])
+                auc_ADD = compute_auc(np.array(self.all_ADD_values[cam_id]), self.max_th) * 100
+                auc_ADD_S = compute_auc(np.array(self.all_ADD_S_values[cam_id]), self.max_th) * 100
+                cd_mean = sum(self.all_CD_values[cam_id]) / len(self.all_CD_values[cam_id])
 
                 print(f"AUC boxmedium for camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD[m]: {cd_mean:.2f}")
                 wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": f"{auc_ADD:.2f}%"})
@@ -1655,81 +1656,83 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
 
         base_path = "/scratch_net/biwidl307_second/lgermano/behave"
         #labels = sorted(glob.glob(os.path.join(base_path, "sequences", "*")))
-        labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
+        labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
+            'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
+                 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
 
-        dataset = []
+        # dataset = []
 
-        # Process each label separately
-        for label in labels:
+        # # Process each label separately
+        # for label in labels:
 
-            selected_file_path_obj = os.path.join(base_path_annotations,label, "object_fit_all.npz")
-            selected_file_path_smpl = os.path.join(base_path_annotations,label, "smpl_fit_all.npz")
-            #selected_file_path_smpl_trace = os.path.join(base_path_trace,label+".0.color.mp4.npz")
-            all_data_frames = []
+        #     selected_file_path_obj = os.path.join(base_path_annotations,label, "object_fit_all.npz")
+        #     selected_file_path_smpl = os.path.join(base_path_annotations,label, "smpl_fit_all.npz")
+        #     #selected_file_path_smpl_trace = os.path.join(base_path_trace,label+".0.color.mp4.npz")
+        #     all_data_frames = []
 
-            # Read GT obj file
+        #     # Read GT obj file
 
-            with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
+        #     with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
 
-                obj_pose = data_obj['angles']
-                obj_trans = data_obj['trans']
-                timestamps = data_obj['frame_times']
+        #         obj_pose = data_obj['angles']
+        #         obj_trans = data_obj['trans']
+        #         timestamps = data_obj['frame_times']
 
-            # Read GT smpl file
+        #     # Read GT smpl file
 
-            with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
+        #     with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
 
-                pose = data_smpl['poses'][:,:72] # SMPL model
-                trans = data_smpl['trans']
-                betas = data_smpl['betas']
+        #         pose = data_smpl['poses'][:,:72] # SMPL model
+        #         trans = data_smpl['trans']
+        #         betas = data_smpl['betas']
 
-            # Create a dict with world frame info first
+        #     # Create a dict with world frame info first
 
-            for idx in range(trans.shape[0]):
-                frame_data = {}
+        #     for idx in range(trans.shape[0]):
+        #         frame_data = {}
 
-                # Define path to get template, date, scene
-                obj_name = label.split('_')[2]
-                frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
-                #print("Obj template path:", frame_data['obj_template_path'])
-                frame_data['scene'] = label
-                #print("Scene:", frame_data['scene'])
+        #         # Define path to get template, date, scene
+        #         obj_name = label.split('_')[2]
+        #         frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
+        #         #print("Obj template path:", frame_data['obj_template_path'])
+        #         frame_data['scene'] = label
+        #         #print("Scene:", frame_data['scene'])
 
-                frame_data['date'] = label.split('_')[0]
-                #print("Date extracted from label:", frame_data['date'])
+        #         frame_data['date'] = label.split('_')[0]
+        #         #print("Date extracted from label:", frame_data['date'])
 
-                frame_data['pose'] = pose[idx,:]
-                #print("Pose at idx:", frame_data['pose'])
+        #         frame_data['pose'] = pose[idx,:]
+        #         #print("Pose at idx:", frame_data['pose'])
 
-                frame_data['trans'] = trans[idx,:]
-                #print("Trans at idx:", frame_data['trans'])
+        #         frame_data['trans'] = trans[idx,:]
+        #         #print("Trans at idx:", frame_data['trans'])
 
-                frame_data['betas'] = betas[idx,:]
-                #print("Betas at idx:", frame_data['betas'])
+        #         frame_data['betas'] = betas[idx,:]
+        #         #print("Betas at idx:", frame_data['betas'])
 
-                frame_data['obj_pose'] = obj_pose[idx,:]
-                #print("Obj_pose at idx:", frame_data['obj_pose'])
+        #         frame_data['obj_pose'] = obj_pose[idx,:]
+        #         #print("Obj_pose at idx:", frame_data['obj_pose'])
 
-                frame_data['obj_trans'] = obj_trans[idx,:]
-                #print("Obj_trans at idx:", frame_data['obj_trans'])
+        #         frame_data['obj_trans'] = obj_trans[idx,:]
+        #         #print("Obj_trans at idx:", frame_data['obj_trans'])
 
                 
-                all_data_frames.append(frame_data)
+        #         all_data_frames.append(frame_data)
 
-            # Project to cameras 0/2/3
-            dataset_label = project_frames(all_data_frames, timestamps)
+        #     # Project to cameras 0/2/3
+        #     dataset_label = project_frames(all_data_frames, timestamps)
 
-            # Save
-            data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
-            with open(data_file_path, 'wb') as f:
-                pickle.dump(dataset_label, f)
+        #     # Save
+        #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
+        #     with open(data_file_path, 'wb') as f:
+        #         pickle.dump(dataset_label, f)
 
-            print(f"Saved data for {label} to {data_file_path}")
+        #     print(f"Saved data for {label} to {data_file_path}")
 
-            # Clear and collect garbage to free up memory
-            all_data_frames.clear()
-            del dataset_label
-            gc.collect()
+        #     # Clear and collect garbage to free up memory
+        #     all_data_frames.clear()
+        #     del dataset_label
+        #     gc.collect()
 
     # for label in labels:
     #     #print("Appending label",label)
@@ -1751,71 +1754,94 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
     # with open(final_data_file_path, 'rb') as f:
     #     dataset = pickle.load(f)
 
-    dataset = []
+    # dataset = []
 
     # Splitting the labels for validation and training
-    val_labels = [label for label in labels if label.startswith("Date03")]
-    train_labels = [label for label in labels if label not in val_labels]
-    train_set = val_labels + train_labels
+    # val_labels = [label for label in labels if label.startswith("Date03")]
+    # train_labels = [label for label in labels if label not in val_labels]
+    # train_set = val_labels + train_labels
 
-    # Process and load data in batches to reduce memory usage
-    for label in train_set:
-        data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
+    # # Process and load data in batches to reduce memory usage
+    # for label in train_set:
+    #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
 
-        with open(data_file_path, 'rb') as f:
-            dataset_batch = pickle.load(f)
-            dataset.append(dataset_batch)
+    #     with open(data_file_path, 'rb') as f:
+    #         dataset_batch = pickle.load(f)
+    #         dataset.append(dataset_batch)
         
-        # Clear memory of the batch to save space
-        del dataset_batch
-        gc.collect()
+    #     # Clear memory of the batch to save space
+    #     del dataset_batch
+    #     gc.collect()
 
     # Save the final dataset
-    final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/boxmedium_full.pkl'
-    with open(final_data_file_path, 'wb') as f:
-        pickle.dump(dataset, f)
+    # final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/boxmedium_full.pkl'
+    # with open(final_data_file_path, 'wb') as f:
+    #     pickle.dump(dataset, f)
 
-    print(f"\nProcessing completed. Final dataset saved in {final_data_file_path}")
+    # print(f"\nProcessing completed. Final dataset saved in {final_data_file_path}")
 
     # Processing camera data more efficiently
-    cam_data = {0: [], 1: [], 2: [], 3: []}
-    for scene in range(len(dataset)):
-        for cam_id in range(4):
-            for idx in range(len(dataset[scene][cam_id])):
-                data_dict = {key: dataset[scene][cam_id][idx][key] for key in dataset[scene][cam_id][idx]}
+    # cam_data = {0: [], 1: [], 2: [], 3: []}
+
+    # for label in labels:
+    #     print("Appending label",label)
+    #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
+
+    #     with open(data_file_path, 'rb') as f:
+    #         dataset = pickle.load(f)
+
+    #     for cam_id in range(4):
+    #         for idx in range(len(dataset[cam_id])):
+    #             # will need to add obj_template_path when diff object are present
+    #             data_dict = {key: dataset[cam_id][idx][key] for key in dataset[cam_id][idx] if key in ['enc_unrolled_pose_trace', 'enc_norm_joints_trace', 'obj_pose', 'obj_trans', 'scene']}
                 
-                # Use previous frame data for 'prev_' fields
-                if idx != 0:
-                    data_dict.update({
-                        'prev_enc_obj_pose': dataset[scene][cam_id][idx-1]['enc_obj_pose'],
-                        'prev_enc_norm_obj_trans': dataset[scene][cam_id][idx-1]['enc_norm_obj_trans'],
-                        'prev_obj_pose': dataset[scene][cam_id][idx-1]['obj_pose'],
-                        'prev_obj_trans':  dataset[scene][cam_id][idx-1]['obj_trans'],
-                    })
+    #             # Use previous frame data for 'prev_' fields
+    #             if idx != 0:
+    #                 data_dict.update({
+    #                     #'prev_enc_obj_pose': dataset[cam_id][idx-1]['enc_obj_pose'],
+    #                     #'prev_enc_norm_obj_trans': dataset[cam_id][idx-1]['enc_norm_obj_trans'],
+    #                     'prev_obj_pose': dataset[cam_id][idx-1]['obj_pose'],
+    #                     'prev_obj_trans':  dataset[cam_id][idx-1]['obj_trans'],
+    #                 })
 
-                cam_data[cam_id].append(data_dict)
+    #                 cam_data[cam_id].append(data_dict)
+    #             else:
+    #                 data_dict.update({
+    #                         #'prev_enc_obj_pose': dataset[cam_id][idx-1]['enc_obj_pose'],
+    #                         #'prev_enc_norm_obj_trans': dataset[cam_id][idx-1]['enc_norm_obj_trans'],
+    #                         'prev_obj_pose': dataset[cam_id][idx]['obj_pose'],
+    #                         'prev_obj_trans':  dataset[cam_id][idx]['obj_trans'],
+    #                     })
 
-    dataset_grouped = BehaveDataset(cam_data)
-    data_module = BehaveDataModule(dataset_grouped, split=split_dict, batch_size=BATCH_SIZE)
+    #                 cam_data[cam_id].append(data_dict)
+        
+    #     del dataset
 
-    # Save the data module with reduced memory footprint
-    save_file_name = f"{wandb.run.name}.pt"
-    data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
-    full_save_path = os.path.join(data_file_path, save_file_name)
-    torch.save(data_module, full_save_path)
+    # dataset_grouped = BehaveDataset(cam_data)
+
+    # path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
+    # split_dict = load_split_from_path(path_to_file)
+
+    # data_module = BehaveDataModule(dataset_grouped, split=split_dict, batch_size=BATCH_SIZE)
+
+    # # Save the data module with reduced memory footprint
+    # save_file_name = f"{wandb.run.name}_boxmedium.pt"
+    # data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
+    # full_save_path = os.path.join(data_file_path, save_file_name)
+    # torch.save(data_module, full_save_path)
 
     #####################################
     # Train
 
     #Load any data module
-    #save_file_name = "earthy-star-2339_noenconprev.pt"
+    save_file_name = "desert-thunder-2592_boxmedium.pt"
 
     # Define the local path where the data module will be saved
-    # data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
-    # full_save_path = os.path.join(data_file_path, save_file_name)
+    data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
+    full_save_path = os.path.join(data_file_path, save_file_name)
     
-    # # Load the data module back to a variable named data_module
-    # data_module = torch.load(full_save_path)
+    # Load the data module back to a variable named data_module
+    data_module = torch.load(full_save_path)
 
     # # Load a subset of indices
     # subsampled_train_indices = data_module.train_indices[::6]

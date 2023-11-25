@@ -3,7 +3,7 @@
 #SBATCH --job-name="rendering"
 #SBATCH --error=/scratch_net/biwidl307/lgermano/H2O/log/error/%j.err
 #SBATCH --output=/scratch_net/biwidl307/lgermano/H2O/log/out/%j.out
-#SBATCH --mem=60G
+#SBATCH --mem=70G
 #SBATCH --gres=gpu:1
 
 TMPDIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
