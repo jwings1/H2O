@@ -35,6 +35,7 @@ import copy
 import gc  # Garbage collection
 import open3d as o3d
 from scipy.spatial import cKDTree
+import math
 
 best_overall_avg_loss_val = float('inf')
 best_params = None
@@ -43,15 +44,24 @@ best_params = None
 os.environ["WANDB_CACHE_DIR"] = "/scratch_net/biwidl307/lgermano/crossvit/wandb/cache"
 
 #learning_rate_range = [1e-3]#, 1e-1]#, 1e-4, 1e-5]
-epochs_range = [5000]#,300]
-learning_rate_range =  [1e-3]#, 5e-7, 1e-6, 5e-6, 1e-5]#[1e-6]#, 5e-3, 1e-2, 5e-2]
-batch_size_range = [64]# whole training set #[32768]#[4096]#[32, 64, 128]
+epochs_range = [15]#,300]
+learning_rate_range =  [5e-4]#, 5e-7, 1e-6, 5e-6, 1e-5, 1e-6, 5e-3, 1e-2, 5e-2]
+batch_size_range = [32]# whole training set #[32768]#[4096]#[32, 64, 128]
 dropout_rate_range = [0.07]#, 0.1, 0.3]
 alpha_range = [1]
-lambda_1_range = [1]
-lambda_2_range = [1]
-lambda_3_range = [1]
-lambda_4_range = [1]
+lambda_1_range = [0.1,1,10]
+lambda_2_range = [0.1,1,10]
+lambda_3_range = [0.1,1,10]
+lambda_4_range = [0.1,1,10]
+# pos_loss = lambda_2 * axis_angle_loss(y_hat_pos, y_pos) + \
+#         lambda_1 * F.mse_loss(y_hat_pos, y_pos) + \
+#         lambda_2 * (1 - F.cosine_similarity(y_hat_pos, y_pos)) + \
+#         lambda_3 * smooth_sign_loss(y_hat_pos, y_pos) + \
+#         lambda_4 * geodesic_loss(y_hat_pos, y_pos)
+# trans_loss = lambda_1 * F.mse_loss(y_hat_trans, y_trans) + \
+#             lambda_2 * (1 - F.cosine_similarity(y_hat_trans, y_trans)) + \
+#             lambda_3 * smooth_sign_loss(y_hat_trans, y_trans)
+
 L_range = [4]#,6,10]
 optimizer_list =  ["AdamW"]#, "Adagrad","AdamW", "Adadelta", "LBFGS"]#, "Adam"]#["Adagrad", "RMSprop", "AdamW", "Adadelta", "LBFGS", "Adam"]
 layer_sizes_range_1 = [
@@ -269,7 +279,35 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
 
         return interpolated_rotations
 
-    def project_frames(data_frames, timestamps):
+    def interpolate_frames(all_data_frames, N):
+        # Number of frames after = 1 + (N-1) * 2
+        interpolated_frames = []
+
+        for idx in range(len(all_data_frames)-1):
+            frame1 = all_data_frames[idx]
+            frame2 = all_data_frames[idx+1]
+
+            # Original frame
+            interpolated_frames.append(frame1)
+
+            # Interpolated frames
+
+            for i in range(1,N,1):
+                interpolated_frame = copy.deepcopy(frame1)
+                t = i / N  
+                interpolated_frame['pose'] = slerp_rotations(frame1['pose'], frame2['pose'], t)
+                interpolated_frame['trans'] = linear_interpolate(frame1['trans'], frame2['trans'], t)
+                interpolated_frame['obj_pose'] = slerp_rotations(frame1['obj_pose'], frame2['obj_pose'], t)
+                interpolated_frame['obj_trans'] = linear_interpolate(frame1['obj_trans'], frame2['obj_trans'], t)
+                
+                interpolated_frames.append(interpolated_frame)            
+
+        # Adding the last original frame
+        interpolated_frames.append(all_data_frames[-1])
+
+        return interpolated_frames
+
+    def project_frames(data_frames, timestamps, N):
 
         #print(len(data_frames))
         #print(len(timestamps))
@@ -327,7 +365,12 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
 
                         return glb_idx
 
-                    idx_global = find_idx_global(timestamps[idx])
+                    def find_idx_no_int(idx, N):
+                        return math.floor(idx / N)
+
+                    # The idx_
+                    idx_no_int = find_idx_no_int(idx, N)
+                    idx_global = find_idx_global(timestamps[idx_no_int])
 
                     if idx_global + 1 <= total_frames:
                         frame['img'] = image_paths[idx_global]
@@ -335,6 +378,17 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
                         frame['trans_trace'] = trans_trace[idx_global,:]
                         frame['betas_trace'] = betas_trace[idx_global,:]
                         frame['joints_trace'] = joints_trace[idx_global,:]
+
+                        # Interpolation of pose_trace, trans_trace, joints_trace
+                        # Interpolation possible from idx = 1 onward, for the previous value, every N = 2
+                        # Indexes is even, 
+                        # Update
+
+                        if idx % N == 0 and idx >= 2:  # Check if idx is divisible by N
+                            # Update the previous based on the second to last and last. Only linear interpolation as we deal with PC. At 1/2.
+                            cam_lists[cam_id][-1]['joints_trace'] = linear_interpolate(cam_lists[cam_id][-N]['joints_trace'], frame['joints_trace'], 1/N)
+                            cam_lists[cam_id][-1]['trans_trace'] = linear_interpolate(cam_lists[cam_id][-N]['trans_trace'], frame['trans_trace'], 1/N)
+                            cam_lists[cam_id][-1]['pose_trace'] = slerp_rotations(cam_lists[cam_id][-N]['pose_trace'], frame['pose_trace'], 1/N)
                     else:
                         # Delete all frames
                         del frame
@@ -401,35 +455,6 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
             #print(f"\nSample from cam0_list after all operations: {cam_lists[0][0]}")
 
         return [cam_lists[0], cam_lists[1], cam_lists[2], cam_lists[3]]
-
-
-        def interpolate_frames(all_data_frames):
-            # Number of frames after = 1 + (N-1) * len(range)
-            interpolated_frames = []
-
-            for idx in range(len(all_data_frames)-1):
-                frame1 = all_data_frames[idx]
-                frame2 = all_data_frames[idx+1]
-
-                # Original frame
-                interpolated_frames.append(frame1)
-
-                # Interpolated frames
-
-                for i in range(6):
-                    interpolated_frame = copy.deepcopy(frame1)
-                    t = i / 6.0  # Assuming you want to interpolate at 1/3 and 2/3 positions between frame1 and frame2
-                    interpolated_frame['pose'] = slerp_rotations(frame1['pose'], frame2['pose'], t)
-                    interpolated_frame['trans'] = linear_interpolate(frame1['trans'], frame2['trans'], t)
-                    interpolated_frame['obj_pose'] = slerp_rotations(frame1['obj_pose'], frame2['obj_pose'], t)
-                    interpolated_frame['obj_trans'] = linear_interpolate(frame1['obj_trans'], frame2['obj_trans'], t)
-                    
-                    interpolated_frames.append(interpolated_frame)            
-
-            # Adding the last original frame
-            interpolated_frames.append(all_data_frames[-1])
-
-            return interpolated_frames
 
     def transform_smpl_to_camera_frame(pose, trans, cam_params):
         # Convert axis-angle representation to rotation matrix
@@ -1404,16 +1429,16 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
                 return torch.min(torch.norm(r1 - r2, dim=-1), torch.norm(r1 + r2, dim=-1)).mean()
 
             def compute_loss(y_hat_pos, y_pos, y_hat_trans, y_trans, lambda_1, lambda_2, lambda_3, lambda_4):
-                pos_loss = lambda_2 * axis_angle_loss(y_hat_pos, y_pos)
-                        # lambda_1 * F.mse_loss(y_hat_pos, y_pos) + \
-                        # lambda_2 * (1 - F.cosine_similarity(y_hat_pos, y_pos)) + \
-                        # lambda_3 * smooth_sign_loss(y_hat_pos, y_pos) + \
-                        # lambda_4 * geodesic_loss(y_hat_pos, y_pos)
+                pos_loss = lambda_2 * axis_angle_loss(y_hat_pos, y_pos) + \
+                        lambda_1 * F.mse_loss(y_hat_pos, y_pos) + \
+                        lambda_2 * (1 - F.cosine_similarity(y_hat_pos, y_pos)) + \
+                        lambda_3 * smooth_sign_loss(y_hat_pos, y_pos) + \
+                        lambda_4 * geodesic_loss(y_hat_pos, y_pos)
 
                 
-                trans_loss = lambda_1 * F.mse_loss(y_hat_trans, y_trans)
-                            # lambda_2 * (1 - F.cosine_similarity(y_hat_trans, y_trans)) + \
-                            # lambda_3 * smooth_sign_loss(y_hat_trans, y_trans)
+                trans_loss = lambda_1 * F.mse_loss(y_hat_trans, y_trans) + \
+                            lambda_2 * (1 - F.cosine_similarity(y_hat_trans, y_trans)) + \
+                            lambda_3 * smooth_sign_loss(y_hat_trans, y_trans)
                 
                 return pos_loss + trans_loss
 
@@ -1534,7 +1559,7 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
                 print(f"Best number of epochs:{self.current_epoch}")
                 
                 # Save the model
-                model_save_path = f'/scratch_net/biwidl307/lgermano/H2O/trained_models/H2O/model_{wandb.run.name}_epoch_{self.current_epoch}.pt'
+                model_save_path = f'/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_{wandb.run.name}_epoch_{self.current_epoch}.pt'
                 torch.save(self.state_dict(), model_save_path)
                 print(f'Model saved to {model_save_path}')
 
@@ -1546,10 +1571,14 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
                 auc_ADD_S = compute_auc(np.array(self.all_ADD_S_values[cam_id]), self.max_th) * 100
                 cd_mean = sum(self.all_CD_values[cam_id]) / len(self.all_CD_values[cam_id])
 
-                print(f"AUC boxmedium for camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD[m]: {cd_mean:.2f}")
-                wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": f"{auc_ADD:.2f}%"})
-                wandb.log({f"AUC boxmedium for camera {cam_id}, ADD-S": f"{auc_ADD_S:.2f}%"})
-                wandb.log({f"Boxmedium for camera {cam_id}, CD[m]": f"{cd_mean:.2f}"})
+                print(f"AUC boxmedium for camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD[m]: {cd_mean:.5f}")
+                # wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": f"{auc_ADD:.2f}%"})
+                # wandb.log({f"AUC boxmedium for camera {cam_id}, ADD-S": f"{auc_ADD_S:.2f}%"})
+                # wandb.log({f"Boxmedium for camera {cam_id}, CD[m]": f"{cd_mean:.2f}"})
+                wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": auc_ADD})
+                wandb.log({f"AUC boxmedium for camera {cam_id}, ADD-S": auc_ADD_S})
+                wandb.log({f"Boxmedium for camera {cam_id}, CD[m]": cd_mean})
+
 
             self.all_ADD_values = {0: [], 1: [], 2: [], 3: []}
             self.all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
@@ -1655,144 +1684,120 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
         #Create a dataset
 
         base_path = "/scratch_net/biwidl307_second/lgermano/behave"
-        #labels = sorted(glob.glob(os.path.join(base_path, "sequences", "*")))
-        labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
-            'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
-                 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
+        labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'box' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])# labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
+        #     'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
+        #          'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
+        print(labels)
 
-        # dataset = []
+        dataset = []
 
-        # # Process each label separately
-        # for label in labels:
+        # Process each label separately
+        for label in labels:
 
-        #     selected_file_path_obj = os.path.join(base_path_annotations,label, "object_fit_all.npz")
-        #     selected_file_path_smpl = os.path.join(base_path_annotations,label, "smpl_fit_all.npz")
-        #     #selected_file_path_smpl_trace = os.path.join(base_path_trace,label+".0.color.mp4.npz")
-        #     all_data_frames = []
+            selected_file_path_obj = os.path.join(base_path_annotations,label, "object_fit_all.npz")
+            selected_file_path_smpl = os.path.join(base_path_annotations,label, "smpl_fit_all.npz")
+            #selected_file_path_smpl_trace = os.path.join(base_path_trace,label+".0.color.mp4.npz")
+            all_data_frames = []
 
-        #     # Read GT obj file
+            # Read GT obj file
 
-        #     with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
+            with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
 
-        #         obj_pose = data_obj['angles']
-        #         obj_trans = data_obj['trans']
-        #         timestamps = data_obj['frame_times']
+                obj_pose = data_obj['angles']
+                obj_trans = data_obj['trans']
+                timestamps = data_obj['frame_times']
 
-        #     # Read GT smpl file
+            # Read GT smpl file
 
-        #     with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
+            with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
 
-        #         pose = data_smpl['poses'][:,:72] # SMPL model
-        #         trans = data_smpl['trans']
-        #         betas = data_smpl['betas']
+                pose = data_smpl['poses'][:,:72] # SMPL model
+                trans = data_smpl['trans']
+                betas = data_smpl['betas']
 
-        #     # Create a dict with world frame info first
+            # Create a dict with world frame info first
 
-        #     for idx in range(trans.shape[0]):
-        #         frame_data = {}
+            for idx in range(trans.shape[0]):
+                frame_data = {}
 
-        #         # Define path to get template, date, scene
-        #         obj_name = label.split('_')[2]
-        #         frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
-        #         #print("Obj template path:", frame_data['obj_template_path'])
-        #         frame_data['scene'] = label
-        #         #print("Scene:", frame_data['scene'])
+                # Define path to get template, date, scene
+                obj_name = label.split('_')[2]
+                frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
+                #print("Obj template path:", frame_data['obj_template_path'])
+                frame_data['scene'] = label
+                #print("Scene:", frame_data['scene'])
 
-        #         frame_data['date'] = label.split('_')[0]
-        #         #print("Date extracted from label:", frame_data['date'])
+                frame_data['date'] = label.split('_')[0]
+                #print("Date extracted from label:", frame_data['date'])
 
-        #         frame_data['pose'] = pose[idx,:]
-        #         #print("Pose at idx:", frame_data['pose'])
+                frame_data['pose'] = pose[idx,:]
+                #print("Pose at idx:", frame_data['pose'])
 
-        #         frame_data['trans'] = trans[idx,:]
-        #         #print("Trans at idx:", frame_data['trans'])
+                frame_data['trans'] = trans[idx,:]
+                #print("Trans at idx:", frame_data['trans'])
 
-        #         frame_data['betas'] = betas[idx,:]
-        #         #print("Betas at idx:", frame_data['betas'])
+                frame_data['betas'] = betas[idx,:]
+                #print("Betas at idx:", frame_data['betas'])
 
-        #         frame_data['obj_pose'] = obj_pose[idx,:]
-        #         #print("Obj_pose at idx:", frame_data['obj_pose'])
+                frame_data['obj_pose'] = obj_pose[idx,:]
+                #print("Obj_pose at idx:", frame_data['obj_pose'])
 
-        #         frame_data['obj_trans'] = obj_trans[idx,:]
-        #         #print("Obj_trans at idx:", frame_data['obj_trans'])
+                frame_data['obj_trans'] = obj_trans[idx,:]
+                #print("Obj_trans at idx:", frame_data['obj_trans'])
 
                 
-        #         all_data_frames.append(frame_data)
+                all_data_frames.append(frame_data)
 
-        #     # Project to cameras 0/2/3
-        #     dataset_label = project_frames(all_data_frames, timestamps)
+            # Project to cameras 0/2/3
+            N = 2
+            all_data_frames_int = interpolate_frames(all_data_frames, N)
+            del all_data_frames
+            dataset_label = project_frames(all_data_frames_int, timestamps, N)
+            del all_data_frames_int
 
-        #     # Save
-        #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
-        #     with open(data_file_path, 'wb') as f:
-        #         pickle.dump(dataset_label, f)
+            # Save
+            data_file_path = f'/scratch_net/biwidl307_second/lgermano/H2O/datasets/30fps_int_1frame/{label}.pkl'
+            with open(data_file_path, 'wb') as f:
+                pickle.dump(dataset_label, f)
 
-        #     print(f"Saved data for {label} to {data_file_path}")
+            print(f"Saved data for {label} to {data_file_path}")
 
-        #     # Clear and collect garbage to free up memory
-        #     all_data_frames.clear()
-        #     del dataset_label
-        #     gc.collect()
+            # Clear and collect garbage to free up memory
+            del dataset_label
+            gc.collect()
 
-    # for label in labels:
-    #     #print("Appending label",label)
-    #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30_fps_no_int/{label}.pkl'
 
-    #     with open(data_file_path, 'rb') as f:
-    #         dataset_batch = pickle.load(f)
-    #         dataset.append(dataset_batch)
 
-    #     del dataset_batch
+    # Include now Date03. No processing. 
 
-    # # Save the final dataset
-    # final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30_fps_no_int/boxmedium_full_testset.pkl'
-    # # #final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/TRACE/firm-elevator-2497_full_testset.pkl'
-    # #final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/TRACE/Date03_Sub03_boxmedium.pkl'
-    # # with open(final_data_file_path, 'wb') as f:
-    # #       pickle.dump(dataset, f)
-    # # print(f"\nProcessing completed. Final dataset saved in {final_data_file_path}")
-    # with open(final_data_file_path, 'rb') as f:
-    #     dataset = pickle.load(f)
+    # labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
+    # 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
+    # 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
 
-    # dataset = []
+    # labels=['Date05_Sub06_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
+    # 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
+    # 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
 
-    # Splitting the labels for validation and training
+    # # Splitting the labels for validation and training
     # val_labels = [label for label in labels if label.startswith("Date03")]
     # train_labels = [label for label in labels if label not in val_labels]
     # train_set = val_labels + train_labels
 
-    # # Process and load data in batches to reduce memory usage
-    # for label in train_set:
-    #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
+    # dataset = []
 
-    #     with open(data_file_path, 'rb') as f:
-    #         dataset_batch = pickle.load(f)
-    #         dataset.append(dataset_batch)
-        
-    #     # Clear memory of the batch to save space
-    #     del dataset_batch
-    #     gc.collect()
-
-    # Save the final dataset
-    # final_data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/boxmedium_full.pkl'
-    # with open(final_data_file_path, 'wb') as f:
-    #     pickle.dump(dataset, f)
-
-    # print(f"\nProcessing completed. Final dataset saved in {final_data_file_path}")
-
-    # Processing camera data more efficiently
+    # #Processing camera data more efficiently
     # cam_data = {0: [], 1: [], 2: [], 3: []}
 
     # for label in labels:
     #     print("Appending label",label)
-    #     data_file_path = f'/scratch_net/biwidl307/lgermano/H2O/datasets/30fps_no_int/{label}.pkl'
+    #     data_file_path = f'/scratch_net/biwidl307_second/lgermano/H2O/datasets/30fps_int_1frame/{label}.pkl'
 
     #     with open(data_file_path, 'rb') as f:
     #         dataset = pickle.load(f)
 
     #     for cam_id in range(4):
     #         for idx in range(len(dataset[cam_id])):
-    #             # will need to add obj_template_path when diff object are present
+    #             # TODO: add obj_template_path when diff object are present
     #             data_dict = {key: dataset[cam_id][idx][key] for key in dataset[cam_id][idx] if key in ['enc_unrolled_pose_trace', 'enc_norm_joints_trace', 'obj_pose', 'obj_trans', 'scene']}
                 
     #             # Use previous frame data for 'prev_' fields
@@ -1825,19 +1830,19 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
     # data_module = BehaveDataModule(dataset_grouped, split=split_dict, batch_size=BATCH_SIZE)
 
     # # Save the data module with reduced memory footprint
-    # save_file_name = f"{wandb.run.name}_boxmedium.pt"
-    # data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
+    # save_file_name = f"{wandb.run.name}_box.pt"
+    # data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
     # full_save_path = os.path.join(data_file_path, save_file_name)
     # torch.save(data_module, full_save_path)
 
     #####################################
     # Train
 
-    #Load any data module
-    save_file_name = "desert-thunder-2592_boxmedium.pt"
+    # Load any data module
+    save_file_name = "mild-bird-2607_box.pt"
 
     # Define the local path where the data module will be saved
-    data_file_path = '/scratch_net/biwidl307/lgermano/H2O/data_module'
+    data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
     full_save_path = os.path.join(data_file_path, save_file_name)
     
     # Load the data module back to a variable named data_module
@@ -1879,12 +1884,12 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
     # Move the model to device
     model_combined.to(device)
 
-    # #Specify the path to the checkpoint
-    # model_path = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/H2O/model_mischievous-sorcery-2421_epoch_13.pt"
+    #Specify the path to the checkpoint
+    model_path = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_leafy-smoke-2619_epoch_16.pt"
 
-    # #Load the state dict from the checkpoint into the model
-    # checkpoint = torch.load(model_path, map_location=device)
-    # model_combined.load_state_dict(checkpoint)
+    #Load the state dict from the checkpoint into the model
+    checkpoint = torch.load(model_path, map_location=device)
+    model_combined.load_state_dict(checkpoint)
 
     # # Freeze the weights of the trans head 
     # for param in model_combined.model3_trans.parameters():
@@ -1923,7 +1928,7 @@ for lr, bs, dr, layers_1, layers_3, alpha, lambda_1, lambda_2, lambda_3, lambda_
         # trainer.test(combined_model, datamodule=data_module)
 
         # Save the model using WandB run ID
-        filename = f"/scratch_net/biwidl307/lgermano/H2O/trained_models/H2O/{wandb.run.name}.pt"
+        filename = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/{wandb.run.name}.pt"
 
         # Save the model
         torch.save(model_combined, filename)
