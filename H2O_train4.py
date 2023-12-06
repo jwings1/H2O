@@ -39,6 +39,7 @@ import math
 import argparse
 from datetime import datetime
 
+
 # Function to create timestamp
 def timestamp():
     return datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1279,8 +1280,8 @@ if __name__ == "__main__":
                 file_path = self.file_paths[idx]
                 with open(file_path, 'rb') as f:
                     data = torch.load(f)
-                    keys = [ SMPL_pose, SMPL_joints, 'masked' + OBJ_pose, 'masked' + OBJ_trans, OBJ_pose, OBJ_trans]
-                return tuple(torch.tensor(data[key], dtype=torch.float32).to(device) for key in keys)
+                    keys = [ SMPL_pose, SMPL_joints, 'masked_' + OBJ_pose, 'masked_' + OBJ_trans, OBJ_pose, OBJ_trans]
+                return tuple(torch.tensor(data[key], dtype=torch.float32).to(device) for key in keys) + tuple(data['scene'])
                 
         class BehaveDataModule(pl.LightningDataModule):
             def __init__(self, dataset, split, batch_size=wandb.config.batch_size):
@@ -1292,16 +1293,24 @@ if __name__ == "__main__":
                 self.train_indices = []
                 self.val_indices = []
                 self.test_indices = []
+                train_identifiers = {}
+                test_identifiers = {}
 
                 # Assuming that 'scene' uniquely identifies each data point
                 for idx, data in enumerate(self.dataset):
-                    scene = data['scene']
+                    scene = data[-1]
                     if scene in self.split['train']:
                         self.train_indices.append(idx)
-                    elif scene in self.split['val']:  # Add 'val' key in split dict if validation data is separate
-                        self.val_indices.append(idx)
+                        train_identifiers.add(scence)
                     elif scene in self.split['test']:
                         self.test_indices.append(idx)
+                        test_identifiers.add(scence)
+
+                self.val_indices = self.train_indices
+
+                # Print the list of identifiers in the train and test set
+                print(f"Identifiers in train set: {train_identifiers}")
+                print(f"Identifiers in test set: {test_identifiers}")
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
@@ -1371,17 +1380,10 @@ if __name__ == "__main__":
                 return x
 
         class TransformerEncoderLayer(nn.Module):
-            def __init__(self,
-                            encoder_hidden_dim,
-                            nhead,
-                            dim_feedforward=256,
-                            dropout=0.1,
-                            activation="gelu",
-                            pre_norm=True):
+            def __init__(self, encoder_hidden_dim, nhead, dim_feedforward=256, dropout=0.1, activation="gelu", pre_norm=True):
                 super().__init__()
-                self.self_attn = nn.MultiheadAttention(encoder_hidden_dim,
-                                                        nhead,
-                                                        dropout=dropout)
+                self.self_attn = nn.MultiheadAttention(encoder_hidden_dim, nhead, dropout=dropout)
+
                 # Implementation of Feedforward model
                 self.linear1 = nn.Linear(encoder_hidden_dim, dim_feedforward)
                 self.dropout = nn.Dropout(dropout)
@@ -1391,57 +1393,16 @@ if __name__ == "__main__":
                 self.norm2 = nn.LayerNorm(encoder_hidden_dim)
                 self.dropout1 = nn.Dropout(dropout)
                 self.dropout2 = nn.Dropout(dropout)
+                self.activation = F.gelu  # Defaulting to GELU
 
-                self.activation = F.gelu()
-                self.pre_norm = pre_norm
-
-            def with_pos_embed(self, tensor, pos: Optional[Tensor]):
-                return tensor if pos is None else tensor + pos
-
-            def forward_post(self,
-                                src,
-                                src_mask: Optional[Tensor] = None,
-                                src_key_padding_mask: Optional[Tensor] = None,
-                                pos: Optional[Tensor] = None):
-                q = k = self.with_pos_embed(src, pos) # add positional embedding to the features
-                src2 = self.self_attn(q,
-                                        k,
-                                        value=src,
-                                        attn_mask=src_mask,
-                                        key_padding_mask=src_key_padding_mask)[0]
-                src = src + self.dropout1(src2)
-                src = self.norm1(src)
-                src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
-                src = src + self.dropout2(src2)
-                src = self.norm2(src)
-                return src
-
-            def forward_pre(self,
-                            src,
-                            src_mask: Optional[Tensor] = None,
-                            src_key_padding_mask: Optional[Tensor] = None,
-                            pos: Optional[Tensor] = None):
-                src2 = self.norm1(src) # do normalization before self-attention, same as in standard pytorch implementation
-                q = k = self.with_pos_embed(src2, pos)  #todo. linear
-                src2 = self.self_attn(q,
-                                        k,
-                                        value=src2,
-                                        attn_mask=src_mask,
-                                        key_padding_mask=src_key_padding_mask)[0]
+            def forward(self, src):
+                src2 = self.norm1(src)
+                src2 = self.self_attn(src2, src2, value=src2, attn_mask=None, key_padding_mask=None)[0]
                 src = src + self.dropout1(src2)
                 src2 = self.norm2(src)
                 src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
                 src = src + self.dropout2(src2)
                 return src
-
-            def forward(self,
-                        src,
-                        src_mask: Optional[Tensor] = None,
-                        src_key_padding_mask: Optional[Tensor] = None,
-                        pos: Optional[Tensor] = None):
-                if self.pre_norm:
-                    return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
-                return self.forward_post(src, src_mask, src_key_padding_mask, pos)
 
         class CombinedTrans(pl.LightningModule):
             def __init__(self):
@@ -1827,7 +1788,7 @@ if __name__ == "__main__":
         #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         # ]
         cam_ids = [0, 1, 2, 3]  # Adjust based on your camera IDs
-        frame_idxs = range(1000)  # Replace `your_frame_range` with the range of frame indices
+        frame_idxs = range(10)  # Replace `your_frame_range` with the range of frame indices
 
         file_paths = []
         for label in ["Date01_Sub01_boxmedium_hand"]:#labels:
@@ -1843,7 +1804,6 @@ if __name__ == "__main__":
         get_dataset = BehaveDataset(file_paths)
 
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
-        print(file_paths)
         split_dict = load_split_from_path(path_to_file)
 
         data_module = BehaveDataModule(get_dataset, split=split_dict, batch_size=BATCH_SIZE)
@@ -1898,11 +1858,6 @@ if __name__ == "__main__":
         #output_stage2 = 3
         #output_dim = 3
 
-        emb_dim_1 = 128
-        emb_dim_2 = 128
-        emb_dim_3 = 128
-        emb_dim_4 = 128
-        emb_dim_5 = 128
        
         print(f"Wandb run name:{wandb.run.name}")
         model_combined = CombinedTrans()
