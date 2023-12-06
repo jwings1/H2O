@@ -53,7 +53,7 @@ def create_parser():
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-3])
     parser.add_argument('--epochs', nargs='+', type=int, default=[50])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[32])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[1])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -1281,7 +1281,7 @@ if __name__ == "__main__":
                 with open(file_path, 'rb') as f:
                     data = torch.load(f)
                     keys = [ SMPL_pose, SMPL_joints, 'masked_' + OBJ_pose, 'masked_' + OBJ_trans, OBJ_pose, OBJ_trans]
-                return tuple(torch.tensor(data[key], dtype=torch.float32).to(device) for key in keys) + tuple(data['scene'])
+                return [torch.tensor(data[key], dtype=torch.float32).to(device) for key in keys]+[data['scene']]
                 
         class BehaveDataModule(pl.LightningDataModule):
             def __init__(self, dataset, split, batch_size=wandb.config.batch_size):
@@ -1293,24 +1293,24 @@ if __name__ == "__main__":
                 self.train_indices = []
                 self.val_indices = []
                 self.test_indices = []
-                train_identifiers = {}
-                test_identifiers = {}
+                train_identifiers = []
+                test_identifiers = []
 
                 # Assuming that 'scene' uniquely identifies each data point
                 for idx, data in enumerate(self.dataset):
                     scene = data[-1]
                     if scene in self.split['train']:
                         self.train_indices.append(idx)
-                        train_identifiers.add(scence)
+                        train_identifiers.append(scene)
                     elif scene in self.split['test']:
                         self.test_indices.append(idx)
-                        test_identifiers.add(scence)
+                        test_identifiers.append(scene)
 
                 self.val_indices = self.train_indices
 
                 # Print the list of identifiers in the train and test set
-                print(f"Identifiers in train set: {train_identifiers}")
-                print(f"Identifiers in test set: {test_identifiers}")
+                print(f"Identifiers in train set: {set(train_identifiers)}")
+                print(f"Identifiers in test set: {set(test_identifiers)}")
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
@@ -1410,35 +1410,37 @@ if __name__ == "__main__":
 
                 emb_d_smpl = 128
                 emb_d_obj = 32
-                mlp1 = MLP(input_dim, emb_d_smpl)
-                mlp2 = MLP(input_dim, emb_d_obj)
-                MHSA = TransformerEncoderLayer()
-                mhsa1 = MHSA(emb_d_smpl, num_heads=4)
-                mhsa2 = MHSA(emb_d_obj, num_heads=2)
-                mhsa3 = MHSA(emb_d_obj, num_heads=1)
+                comb_emb = 320
+                input_dim_smpl = 576
+                input_dim_obj = 3
+                output_dim = 6
+                dim = 320
 
+                # MLP models
+                self.mlp1 = MLP(input_dim_smpl, emb_d_smpl)
+                self.mlp2 = MLP(input_dim_obj, emb_d_obj)
+                self.mlp3 = MLP(dim, output_dim)
+
+                # Transformer Encoder Layers
+                self.mhsa1 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_smpl, nhead=4)
+                self.mhsa2 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_obj, nhead=2)
+                self.mhsa3 = TransformerEncoderLayer(encoder_hidden_dim=comb_emb, nhead=1)
+                
                 # Embeds SMPL Pose
-
-                self.model1 = torch.nn.ModuleList()
-                self.model1.append(torch.nn.Sequential(mlp1, mhsa1, mhsa1))
+                self.model1 = torch.nn.Sequential(self.mlp1, self.mhsa1, self.mhsa1)
                 
                 # Embeds SMPL Joints
-
-                self.model2 = torch.nn.ModuleList()
-                self.model2.append(torch.nn.Sequential(mlp1, mhsa1, mhsa1))
+                self.model2 = torch.nn.Sequential(self.mlp1, self.mhsa1, self.mhsa1)
                 
 
                 # Combine SMPL Joints and Pose
-                self.model3 = torch.nn.ModuleList()
-                self.model3.append(torch.nn.Sequential(mhsa3, mhsa3, mhsa3, mhsa3))               
+                self.model3 = torch.nn.Sequential(self.mhsa3, self.mhsa3, self.mhsa3, self.mhsa3)         
 
                 # Embeds OBJ Pose
-                self.model4 = torch.nn.ModuleList()
-                self.model4.append(torch.nn.Sequential(mlp2, mhsa2, mhsa2))
+                self.model4 = torch.nn.Sequential(self.mlp2, self.mhsa2, self.mhsa2)
 
                 # Embeds OBJ Trans
-                self.model5 = torch.nn.ModuleList()
-                self.model5.append(torch.nn.Sequential(mlp2, mhsa2, mhsa2))
+                self.model5 = torch.nn.Sequential(self.mlp2, self.mhsa2, self.mhsa2)
 
                 # Other variables
 
@@ -1452,7 +1454,14 @@ if __name__ == "__main__":
             
             def forward(self, cam_data):
                 # Unpack cam_data
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, _, _ = cam_data
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
+
+                print("Shape of smpl_pose:", smpl_pose.shape)
+                print("Shape of smpl_joints:", smpl_joints.shape)
+                print("Shape of masked_obj_pose:", masked_obj_pose.shape)
+                print("Shape of masked_obj_trans:", masked_obj_trans.shape)
+                print("Shape of obj_pose:", obj_pose.shape)
+                print("Shape of obj_trans:", obj_trans.shape)
 
                 # Process each part with the corresponding model
                 output1 = self.model1(smpl_pose)
@@ -1460,22 +1469,29 @@ if __name__ == "__main__":
                 output4 = self.model4(masked_obj_pose)
                 output5 = self.model5(masked_obj_trans)
 
+                # Assuming output1, output2, output4, output5 are tensors
+                print("Shape of output1:", output1.shape)
+                print("Shape of output2:", output2.shape)
+                print("Shape of output4:", output4.shape)
+                print("Shape of output5:", output5.shape)
                 # Concatenate the outputs
-                concatenated_output = torch.cat([output1, output2, output4, output5], dim=1)
+                concatenated_output = torch.cat([output1, output2, output4, output5], dim=2)
 
                 # Feed the concatenated output to self.model3
-                final_output = self.model3(concatenated_output)
+                output = self.mlp3(self.model3(concatenated_output))
+                
+                print(output)
+                # wrong we need a whole seq!!
+                predicted_obj_pose = output[:, :, :3]  # Takes the first 3 elements
+                predicted_obj_trans = output[:, :, 3:6]  # Takes the next 3 elements
 
-                return final_output
+                return predicted_obj_pose, predicted_obj_trans
 
             def training_step(self, cam_data):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data
-
-                # Forward pass
-                predictions = self.forward(tuple(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans))
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
 
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = predictions
+                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
                 # Compute L2 loss (MSE) for both pose and translation
                 pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
@@ -1508,13 +1524,13 @@ if __name__ == "__main__":
                 return None
 
             def validation_step(self, cam_data, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
 
                 # Forward pass
                 predictions = self.forward((smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans))
 
-                # Extract predictions
-                predicted_obj_pose, predicted_obj_trans = predictions
+                predicted_obj_pose = output[:, :3]  # Takes the first 3 elements
+                predicted_obj_trans = output[:, 3:6]  # Takes the next 3 elements
 
                 # Compute L2 loss (MSE) for both pose and translation
                 pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
@@ -1531,7 +1547,7 @@ if __name__ == "__main__":
                 return total_loss
 
             def test_step(self, cam_data, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
 
                 # Forward pass
                 predictions = self.forward((smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans))
@@ -1809,7 +1825,7 @@ if __name__ == "__main__":
         data_module = BehaveDataModule(get_dataset, split=split_dict, batch_size=BATCH_SIZE)
 
         # Save the data module with reduced memory footprint
-        save_file_name = f"{wandb.run.name}_visibilibity_aware.pt"
+        save_file_name = f"{wandb.run.name}.pt"
         #data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
         data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         full_save_path = os.path.join(data_file_path, save_file_name)
