@@ -1410,28 +1410,29 @@ if __name__ == "__main__":
 
                 emb_d_smpl = 128
                 emb_d_obj = 32
-                comb_emb = 320
-                input_dim_smpl = 576
+                comb_emb = 150
+                input_dim_smpl = 72
                 input_dim_obj = 3
-                output_dim = 6
-                dim = 320
+                num_frames = 900
+                #output_dim = 6
+                #dim = 320
 
                 # MLP models
-                self.mlp1 = MLP(input_dim_smpl, emb_d_smpl)
+                self.mlp1 = MLP(147 * num_frames, emb_d_smpl)
                 self.mlp2 = MLP(input_dim_obj, emb_d_obj)
-                self.mlp3 = MLP(dim, output_dim)
+                self.mlp3 = MLP(input_dim_smpl * num_frames, 147 * num_frames)
 
                 # Transformer Encoder Layers
                 self.mhsa1 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_smpl, nhead=4)
                 self.mhsa2 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_obj, nhead=2)
                 self.mhsa3 = TransformerEncoderLayer(encoder_hidden_dim=comb_emb, nhead=1)
+                #self.mhsa4 = TransformerEncoderLayer(encoder_hidden_dim=output_dim, nhead=1)
                 
                 # Embeds SMPL Pose
                 self.model1 = torch.nn.Sequential(self.mlp1, self.mhsa1, self.mhsa1)
                 
                 # Embeds SMPL Joints
                 self.model2 = torch.nn.Sequential(self.mlp1, self.mhsa1, self.mhsa1)
-                
 
                 # Combine SMPL Joints and Pose
                 self.model3 = torch.nn.Sequential(self.mhsa3, self.mhsa3, self.mhsa3, self.mhsa3)         
@@ -1453,55 +1454,64 @@ if __name__ == "__main__":
                 self.max_th = 0.10
             
             def forward(self, cam_data):
+                #print("Number of elements in cam_data:", len(cam_data))
                 # Unpack cam_data
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, _, _, _ = cam_data
 
-                print("Shape of smpl_pose:", smpl_pose.shape)
-                print("Shape of smpl_joints:", smpl_joints.shape)
-                print("Shape of masked_obj_pose:", masked_obj_pose.shape)
-                print("Shape of masked_obj_trans:", masked_obj_trans.shape)
-                print("Shape of obj_pose:", obj_pose.shape)
-                print("Shape of obj_trans:", obj_trans.shape)
+                # print("Shape of smpl_pose:", smpl_pose.shape)
+                # print("Shape of smpl_joints:", smpl_joints.shape)
+                # print("Shape of masked_obj_pose:", masked_obj_pose.shape)
+                # print("Shape of masked_obj_trans:", masked_obj_trans.shape)
+                # print("Shape of obj_pose:", obj_pose.shape)
+                # print("Shape of obj_trans:", obj_trans.shape)
+
+                smpl_joints = (smpl_joints).reshape(-1,1)
+
+                print(smpl_joints.shape())
 
                 # Process each part with the corresponding model
-                output1 = self.model1(smpl_pose)
-                output2 = self.model2(smpl_joints)
+                output1 = self.model1(self.mlp3(smpl_pose))
+                output2 = self.model2(self.mlp3(smpl_joints))
                 output4 = self.model4(masked_obj_pose)
                 output5 = self.model5(masked_obj_trans)
 
                 # Assuming output1, output2, output4, output5 are tensors
-                print("Shape of output1:", output1.shape)
-                print("Shape of output2:", output2.shape)
-                print("Shape of output4:", output4.shape)
-                print("Shape of output5:", output5.shape)
+                # print("Shape of output1:", output1.shape)
+                # print("Shape of output2:", output2.shape)
+                # print("Shape of output4:", output4.shape)
+                # print("Shape of output5:", output5.shape)
                 # Concatenate the outputs
                 concatenated_output = torch.cat([output1, output2, output4, output5], dim=2)
 
                 # Feed the concatenated output to self.model3
-                output = self.mlp3(self.model3(concatenated_output))
-                
-                print(output)
-                # wrong we need a whole seq!!
-                predicted_obj_pose = output[:, :, :3]  # Takes the first 3 elements
-                predicted_obj_trans = output[:, :, 3:6]  # Takes the next 3 elements
+                output = self.model3(concatenated_output)
 
-                return predicted_obj_pose, predicted_obj_trans
+                predicted_smpl_pose = output[:, :, :72]
+                predicted_smpl_joints = output[:, :, 72:144]
+                predicted_obj_pose = output[:, :, -6:-3] 
+                predicted_obj_trans = output[:, :, -3:]
+
+                return predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans
 
             def training_step(self, cam_data):
                 smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
 
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
+                predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
                 # Compute L2 loss (MSE) for both pose and translation
+                smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
+                smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints)
                 pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
                 trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
                 # Combine the losses
-                total_loss = pose_loss + trans_loss
+                total_loss = pose_loss + trans_loss + smpl_pose_loss + smpl_joints_loss
 
                 # Logging the losses
                 self.log('train_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('train_smpl_pose_loss', smpl_pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('train_smpl_joints_loss', smpl_joints_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
                 self.log('train_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
                 self.log('train_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
@@ -1523,14 +1533,14 @@ if __name__ == "__main__":
 
                 return None
 
-            def validation_step(self, cam_data, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
+            def validation_step(self, batch, batch_idx):
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = batch
 
                 # Forward pass
-                predictions = self.forward((smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans))
+                predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(batch)
 
-                predicted_obj_pose = output[:, :3]  # Takes the first 3 elements
-                predicted_obj_trans = output[:, 3:6]  # Takes the next 3 elements
+                # predicted_obj_pose = output[:, :3]  # Takes the first 3 elements
+                # predicted_obj_trans = output[:, 3:6]  # Takes the next 3 elements
 
                 # Compute L2 loss (MSE) for both pose and translation
                 pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
@@ -1544,20 +1554,16 @@ if __name__ == "__main__":
                 self.log('val_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
                 self.log('val_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
+                # Explicit logging to wandb
+                wandb.log({'val_pose_loss': pose_loss.item(), 'val_trans_loss': trans_loss.item(), 'val_total_loss': total_loss.item()})
+
                 return total_loss
 
-            def test_step(self, cam_data, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = cam_data
+            def test_step(self, batch, batch_idx):
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans, _ = batch
 
                 # Forward pass
-                predictions = self.forward((smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans))
-
-                # Extract predictions
-                predicted_obj_pose, predicted_obj_trans = predictions
-
-                # Compute L2 loss (MSE) for both pose and translation
-                pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
-                trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
+                predicted_obj_pose, predicted_obj_trans = self.forward(batch)
 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
@@ -1727,8 +1733,8 @@ if __name__ == "__main__":
         #     "Date07_Sub08_boxmedium"
         # ]
 
-        # labels = [
-        #     "Date01_Sub01_boxmedium_hand", "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+        labels = [
+             "Date01_Sub01_boxmedium_hand"]#, "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
         #     "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
         #     "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
@@ -1784,7 +1790,7 @@ if __name__ == "__main__":
                     
         #             # Append to cam_data
         #             # cam_data[cam_id].append(current_data_dict)
-        #             save_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/visibility_aware_120_{label}_cam{cam_id}_frame_{idx}.pkl'
+        #             save_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{wandb.run.name}_{label}_cam{cam_id}_frame_{idx}.pkl'
         #             torch.save(current_data_dict, save_path)
 
         #             del current_data_dict
@@ -1793,8 +1799,9 @@ if __name__ == "__main__":
 
         #     del dataset
 
-        # labels = [
-        #     "Date01_Sub01_boxmedium_hand", "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+        labels = [
+            "Date01_Sub01_boxmedium_hand",] #"Date04_Sub05_boxsmall"
+        #     "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
         #     "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
         #     "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
@@ -1803,14 +1810,14 @@ if __name__ == "__main__":
         #     "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
         #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         # ]
-        cam_ids = [0, 1, 2, 3]  # Adjust based on your camera IDs
-        frame_idxs = range(10)  # Replace `your_frame_range` with the range of frame indices
+        cam_ids = [2]#0, 1, 2, 3]  # Adjust based on your camera IDs
+        frame_idxs = range(30)  # Replace `your_frame_range` with the range of frame indices
 
         file_paths = []
-        for label in ["Date01_Sub01_boxmedium_hand"]:#labels:
+        for label in labels:
             for cam_id in cam_ids:
                 for idx in frame_idxs:
-                    file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/visibility_aware_120_{label}_cam{cam_id}_frame_{idx}.pkl'
+                    file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{wandb.run.name}_{label}_cam{cam_id}_frame_{idx}.pkl'
                     file_paths.append(file_path)
 
         # Specify device
@@ -1833,12 +1840,13 @@ if __name__ == "__main__":
 
         #####################################
         # Train
-
+        # Specify device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Load any data module
-        # save_file_name = "boxmedium_pose_joints_obj_pose_obj_trans.pt"
+        # save_file_name = "visibility_aware_Date01_Sub01_boxmedium_hand_pose_joints_obj_pose_obj_trans.pt"
 
         # # Define the local path where the data module will be saved
-        # data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
+        # data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         # full_save_path = os.path.join(data_file_path, save_file_name)
         
         # # Load the data module back to a variable named data_module
