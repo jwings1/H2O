@@ -1405,26 +1405,24 @@ if __name__ == "__main__":
                 return src
 
         class CombinedTrans(pl.LightningModule):
-            def __init__(self):
+            def __init__(self, num_frames):
                 super(CombinedTrans, self).__init__()
 
-                emb_d_smpl = 128
-                emb_d_obj = 32
-                comb_emb = 150
-                input_dim_smpl = 72
-                input_dim_obj = 3
-                num_frames = 900
-                #output_dim = 6
-                #dim = 320
+                emb_d_smpl = 2820 * 128
+                emb_d_obj = 2820 * 32
+                comb_emb = 2820 * 6
+                input_dim_smpl = 2820 * 6
+                input_dim_obj = 2820 * 6
+
 
                 # MLP models
-                self.mlp1 = MLP(147 * num_frames, emb_d_smpl)
+                self.mlp1 = MLP(147 * 2820, emb_d_smpl)
                 self.mlp2 = MLP(input_dim_obj, emb_d_obj)
-                self.mlp3 = MLP(input_dim_smpl * num_frames, 147 * num_frames)
+                self.mlp3 = MLP(72 * 2820, 147 * 2820)
 
                 # Transformer Encoder Layers
                 self.mhsa1 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_smpl, nhead=4)
-                self.mhsa2 = TransformerEncoderLayer(encoder_hidden_dim=emb_d_obj, nhead=2)
+                self.mhsa2 = TransformerEncoderLayer(encoder_hidden_dim=2820 * 6, nhead=2)
                 self.mhsa3 = TransformerEncoderLayer(encoder_hidden_dim=comb_emb, nhead=1)
                 #self.mhsa4 = TransformerEncoderLayer(encoder_hidden_dim=output_dim, nhead=1)
                 
@@ -1465,9 +1463,11 @@ if __name__ == "__main__":
                 # print("Shape of obj_pose:", obj_pose.shape)
                 # print("Shape of obj_trans:", obj_trans.shape)
 
-                smpl_joints = (smpl_joints).reshape(-1,1)
-
-                print(smpl_joints.shape())
+                smpl_joints = (np.concatenate(smpl_joints)).reshape(-1,1)
+                smpl_pose = smpl_pose.reshape(-1,1)
+                print("\n")
+                print(smpl_joints.shape)
+                print(smpl_pose.shape)
 
                 # Process each part with the corresponding model
                 output1 = self.model1(self.mlp3(smpl_pose))
@@ -1734,70 +1734,66 @@ if __name__ == "__main__":
         # ]
 
         labels = [
-             "Date01_Sub01_boxmedium_hand"]#, "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
-        #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
-        #     "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
-        #     "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
-        #     "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
-        #     "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
-        #     "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
-        #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
-        # ]
+             "Date01_Sub01_boxmedium_hand", "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+            "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
+            "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
+            "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
+            "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
+            "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
+            "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
+            "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
+        ]
 
-        # print("\nTraining on:", labels)
+        print("\nTraining on:", labels)
 
-        # # Splitting the labels for validation and training
-        # val_labels = [label for label in labels if label.startswith("Date03")]
-        # train_labels = [label for label in labels if label not in val_labels]
-        # train_set = val_labels + train_labels
+        # Splitting the labels for validation and training
+        val_labels = [label for label in labels if label.startswith("Date03")]
+        train_labels = [label for label in labels if label not in val_labels]
+        train_set = val_labels + train_labels
 
-        # dataset = []
+        dataset = []
+        for label in labels:
+            print("Appending label",label)
+            #data_file_path = f'/scratch_net/biwidl307_second/lgermano/H2O/datasets/30fps_int_1frame/{label}.pkl'
+            data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{label}.pkl'
 
-        # #Processing camera data more efficiently
-        # #cam_data = {0: [], 1: [], 2: [], 3: []}
+            with open(data_file_path, 'rb') as f:
+                dataset = pickle.load(f)
 
-        # for label in labels:
-        #     print("Appending label",label)
-        #     #data_file_path = f'/scratch_net/biwidl307_second/lgermano/H2O/datasets/30fps_int_1frame/{label}.pkl'
-        #     data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{label}.pkl'
+            for cam_id in range(4):
+                # Create data_dict with stacked arrays for keys: SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans
+                data_dict = {key: np.vstack([dataset[cam_id][idx][key] for idx in range(len(dataset[cam_id]))]) for key in [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]}
 
-        #     with open(data_file_path, 'rb') as f:
-        #         dataset = pickle.load(f)
+                W = 120  # Window size
 
-        #     for cam_id in range(4):
-        #         # Create data_dict with stacked arrays for keys: SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans
-        #         data_dict = {key: np.vstack([dataset[cam_id][idx][key] for idx in range(len(dataset[cam_id]))]) for key in [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]}
+                for idx in range(len(dataset[cam_id])):
+                    # Determine the window range
+                    start = max(idx - W, 0)
+                    end = min(idx + W, len(dataset[cam_id]))
 
-        #         W = 120  # Window size
+                    current_data_dict = copy.deepcopy(data_dict)
 
-        #         for idx in range(len(dataset[cam_id])):
-        #             # Determine the window range
-        #             start = max(idx - W, 0)
-        #             end = min(idx + W, len(dataset[cam_id]))
-
-        #             current_data_dict = copy.deepcopy(data_dict)
-
-        #             for key in [OBJ_pose, OBJ_trans]:  # Iterate over the keys to be masked
-        #                 current_data_dict['masked_' + key] = copy.deepcopy(current_data_dict[key])
+                    for key in [OBJ_pose, OBJ_trans]:  # Iterate over the keys to be masked
+                        current_data_dict['masked_' + key] = copy.deepcopy(current_data_dict[key])
                             
-        #                 for i in range(start, end):
-        #                     # Set the values to zero in the specified window
-        #                     current_data_dict['masked_' + key][i, :] = 0
+                        for i in range(start, end):
+                            # Set the values to zero in the specified window
+                            current_data_dict['masked_' + key][i, :] = 0
            
-        #             # Update data_dict with 'scene' key
-        #             current_data_dict.update({'scene': dataset[cam_id][0]['scene']})
-        #             current_data_dict.update({'cam_id': cam_id})
+                    # Update data_dict with 'scene' key
+                    current_data_dict.update({'scene': dataset[cam_id][0]['scene']})
+                    current_data_dict.update({'cam_id': cam_id})
                     
-        #             # Append to cam_data
-        #             # cam_data[cam_id].append(current_data_dict)
-        #             save_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{wandb.run.name}_{label}_cam{cam_id}_frame_{idx}.pkl'
-        #             torch.save(current_data_dict, save_path)
+                    # Append to cam_data
+                    # cam_data[cam_id].append(current_data_dict)
+                    save_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{wandb.run.name}_{label}_cam{cam_id}_frame_{idx}.pkl'
+                    torch.save(current_data_dict, save_path)
 
-        #             del current_data_dict
+                    del current_data_dict
 
-        #         del data_dict
+                del data_dict
 
-        #     del dataset
+            del dataset
 
         labels = [
             "Date01_Sub01_boxmedium_hand",] #"Date04_Sub05_boxsmall"
@@ -1811,7 +1807,8 @@ if __name__ == "__main__":
         #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         # ]
         cam_ids = [2]#0, 1, 2, 3]  # Adjust based on your camera IDs
-        frame_idxs = range(30)  # Replace `your_frame_range` with the range of frame indices
+        num_frames = 30
+        frame_idxs = range(num_frames)  # Replace `your_frame_range` with the range of frame indices
 
         file_paths = []
         for label in labels:
@@ -1884,7 +1881,7 @@ if __name__ == "__main__":
 
        
         print(f"Wandb run name:{wandb.run.name}")
-        model_combined = CombinedTrans()
+        model_combined = CombinedTrans(num_frames)
 
         # Move the model to device
         model_combined.to(device)
