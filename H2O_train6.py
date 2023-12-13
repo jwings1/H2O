@@ -38,7 +38,7 @@ from scipy.spatial import cKDTree
 import math
 import argparse
 from datetime import datetime
-from memory_profiler import profile
+#from memory_profiler import profile
 import pdb
 
 
@@ -54,8 +54,8 @@ def create_parser():
     parser.add_argument('--fourth_option', choices=['obj_trans', 'norm_obj_trans', 'enc_norm_obj_trans'], help='Specify the fourth option.')
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
-    parser.add_argument('--epochs', nargs='+', type=int, default=[1])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[1])
+    parser.add_argument('--epochs', nargs='+', type=int, default=[120])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[128])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -1272,7 +1272,7 @@ if __name__ == "__main__":
             #     return [optimizer], [scheduler]
 
         class BehaveDataset(Dataset):
-            def __init__(self, labels, cam_ids, frames_subclip, selected_keys, W, model_combined, wandb, device):
+            def __init__(self, labels, cam_ids, frames_subclip, selected_keys, W, wandb, device):
                 self.labels = labels
                 self.cam_ids = cam_ids
                 self.frames_subclip = frames_subclip
@@ -1281,23 +1281,42 @@ if __name__ == "__main__":
                 self.device = device
                 self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-                base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame_numpy'
+                #base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame_numpy'
+                base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
+                print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
                 for label in self.labels:
                     for cam_id in self.cam_ids:
-                        file_path = f'{base_path}/{label}.pkl'
+                        file_path = os.path.join(base_path, label + '.pkl')
+                        print(file_path)
                         if os.path.exists(file_path):
+                            print(f"Found file: {file_path}", flush=True)
                             with open(file_path, 'rb') as f:
+                                # Only possible if there is one training label
+                                # self.dataset = pickle.load(f)
+                                # for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                # #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                #     end_idx = start_idx + self.frames_subclip
+                                #     if end_idx <= len(self.dataset[cam_id]):
+                                #         for idx in range(self.frames_subclip):
+                                #         #for idx in range(self.frames_subclip - 1, self.frames_subclip):
+                                #             window_start = max(idx - self.W, 0)
+                                #             window_end = min(idx + self.W, self.frames_subclip)
+                                #             self.data_info.append((file_path, cam_id, start_idx, end_idx, window_start, window_end))
+
                                 dataset = pickle.load(f)
                                 for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                     end_idx = start_idx + self.frames_subclip
                                     if end_idx <= len(dataset[cam_id]):
                                         for idx in range(self.frames_subclip):
+                                        #for idx in range(self.frames_subclip - 1, self.frames_subclip):
                                             window_start = max(idx - self.W, 0)
                                             window_end = min(idx + self.W, self.frames_subclip)
                                             self.data_info.append((file_path, cam_id, start_idx, end_idx, window_start, window_end))
 
             def __len__(self):
+                print(len(self.data_info))
                 return len(self.data_info)
 
             def __getitem__(self, idx):
@@ -1306,21 +1325,24 @@ if __name__ == "__main__":
                 with open(file_path, 'rb') as f:
                     dataset = pickle.load(f)
 
-                #TODO: load only needed keys
                 subclip_data = dataset[cam_id][start_idx:end_idx]
-                #current_data_dict = {key: np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]) for key in self.selected_keys}
                 scene = dataset[cam_id][0]['scene']
+                # Only possible if there is one training label
+                #subclip_data = self.dataset[cam_id][start_idx:end_idx]
+                #scene = self.dataset[cam_id][0]['scene']
 
                 masked_indices = [2, 3]  # Indices of the items to mask
+                extended_keys = self.selected_keys
+                # extended_keys.append(self.selected_keys[2])
+                # extended_keys.append(self.selected_keys[3])
 
-                masked_item = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32).to(self.device) for key in self.selected_keys]
+                masked_items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32).to(self.device) for key in extended_keys + [OBJ_pose, OBJ_trans]]
+                #print(extended_keys)
 
                 for idx in masked_indices:
-                    masked_item[idx][:, window_start:window_end] = 0
+                    masked_items[idx][:, window_start:window_end] = 0
 
-                gc.collect()
-                return masked_item, scene
-
+                return masked_items, scene
 
         class BehaveDataModule(pl.LightningDataModule):
             def __init__(self, dataset, split, batch_size):
@@ -1344,7 +1366,7 @@ if __name__ == "__main__":
                         self.test_indices.append(idx)
                         test_identifiers.append(scene)
 
-                self.val_indices = self.train_indices  # Assuming validation and training sets are the same
+                self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
                 # Uncomment to print identifiers in train and test sets
                 # print(f"Identifiers in train set: {set(train_identifiers)}")
@@ -1352,7 +1374,7 @@ if __name__ == "__main__":
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)
 
             def val_dataloader(self):
                 val_dataset = Subset(self.dataset, self.val_indices)
@@ -1444,15 +1466,6 @@ if __name__ == "__main__":
             def __init__(self, frames_subclip):
                 super(CombinedTrans, self).__init__()
 
-
-            #     self.automatic_optimization = False
-            #     self.validation_losses = []
-            #     self.best_avg_loss_val = float('inf')
-            #     self.all_ADD_values = {0: [], 1: [], 2: [], 3: []}
-            #     self.all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
-            #     self.all_CD_values = {0: [], 1: [], 2: [], 3: []}
-            #     self.max_th = 0.10
-
                 self.automatic_optimization = False
                 self.frames_subclip = frames_subclip
                 self.emb_d_smpl = frames_subclip * 1 #128
@@ -1461,12 +1474,11 @@ if __name__ == "__main__":
                 self.input_dim_smpl = frames_subclip * 3 
                 self.input_dim_obj = frames_subclip * 3
 
-                # Transformer Encoder Layers with reduced heads and layers
+                # Transformer Encoder Layers
                 self.mhsa1 = TransformerEncoderLayer(encoder_hidden_dim= self.emb_d_smpl, nhead=4, dim_feedforward=256)
                 self.mhsa2 = TransformerEncoderLayer(encoder_hidden_dim= self.emb_d_obj, nhead=2, dim_feedforward=64)
                 self.mhsa3 = TransformerEncoderLayer(encoder_hidden_dim= self.emb_d_comb, nhead=1, dim_feedforward=256)
 
-                # Reduced Models
                 self.model1 = torch.nn.Sequential(self.mhsa1,self.mhsa1)
                 self.model2 = self.model1  # Using the same instance for both
                 self.model3 = torch.nn.Sequential(self.mhsa3, self.mhsa3, self.mhsa3, self.mhsa3)
@@ -1474,7 +1486,7 @@ if __name__ == "__main__":
                 self.model5 = self.model4  # Using the same instance for both
 
             def forward(self, cam_data):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, _, _ = cam_data
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, _, _ = cam_data[-2][:]
 
                 output1 = self.model1(smpl_pose.permute(0,2,1))
                 output2 = self.model2(smpl_joints.reshape(wandb.config.batch_size, -1, 72).permute(0,2,1))
@@ -1493,7 +1505,8 @@ if __name__ == "__main__":
                 return predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans
 
             def training_step(self, cam_data):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data
+                #print(cam_data)
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data[-2][:]
 
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
                 predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
@@ -1532,47 +1545,82 @@ if __name__ == "__main__":
 
                 return None
 
-            def validation_step(self, batch, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = batch
+            # def validation_step(self, batch, batch_idx):
+            #     smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = batch
 
-                # Forward pass
-                predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(batch)
+            #     # Forward pass
+            #     predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(batch)
 
-                # predicted_obj_pose = output[:, :3]  # Takes the first 3 elements
-                # predicted_obj_trans = output[:, 3:6]  # Takes the next 3 elements
+            #     # predicted_obj_pose = output[:, :3]  # Takes the first 3 elements
+            #     # predicted_obj_trans = output[:, 3:6]  # Takes the next 3 elements
+
+            #     # Compute L2 loss (MSE) for both pose and translation
+            #     pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
+            #     trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
+
+            #     # Combine the losses
+            #     total_loss = pose_loss + trans_loss
+
+            #     # Logging the losses
+            #     self.log('val_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            #     self.log('val_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+            #     self.log('val_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+
+            #     # Explicit logging to wandb
+            #     wandb.log({'val_pose_loss': pose_loss.item(), 'val_trans_loss': trans_loss.item(), 'val_total_loss': total_loss.item()})
+
+            #     return total_loss
+
+            def validation_step(self, cam_data, batch_idx):
+                # Get the data from cam_data as in training_step
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data[-2][:]
+
+                # Run forward pass as in training_step
+                predicted_smpl_pose, predicted_smpl_joints, predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
                 # Compute L2 loss (MSE) for both pose and translation
+                smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
+                smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
                 pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
                 trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
                 # Combine the losses
-                total_loss = pose_loss + trans_loss
+                total_loss = pose_loss + trans_loss + smpl_pose_loss + smpl_joints_loss
 
-                # Logging the losses
+                # Log the losses. The logging method might differ slightly based on your framework
                 self.log('val_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('val_smpl_pose_loss', smpl_pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('val_smpl_joints_loss', smpl_joints_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
                 self.log('val_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
                 self.log('val_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-                # Explicit logging to wandb
-                wandb.log({'val_pose_loss': pose_loss.item(), 'val_trans_loss': trans_loss.item(), 'val_total_loss': total_loss.item()})
+                # Logging the losses to wandb
+                wandb.log({
+                    'val_total_loss': total_loss.item(),
+                    'val_pose_loss': pose_loss.item(),
+                    'val_smpl_pose_loss': smpl_pose_loss.item(),
+                    'val_smpl_joints_loss': smpl_joints_loss.item(),
+                    'val_trans_loss': trans_loss.item(),
+                })
 
-                return total_loss
+                return {'val_loss': total_loss}
+
 
             def test_step(self, batch, batch_idx):
-                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = batch
+                # smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = batch
 
-                # Forward pass
-                predicted_obj_pose, predicted_obj_trans = self.forward(batch)
+                # # Forward pass
+                # predicted_obj_pose, predicted_obj_trans = self.forward(batch)
 
-                # Combine the losses
-                total_loss = pose_loss + trans_loss
+                # # Combine the losses
+                # total_loss = pose_loss + trans_loss
 
-                # Logging the losses
-                self.log('test_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-                self.log('test_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-                self.log('test_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                # # Logging the losses
+                # self.log('test_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                # self.log('test_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                # self.log('test_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-                return total_loss
+                return 0
 
             def configure_optimizers(self):
                 if wandb.config.optimizer == "SGD":
@@ -1706,37 +1754,35 @@ if __name__ == "__main__":
 
         # Define your labels, camera IDs, and frame range
         cam_ids = [2]#[0, 1, 2, 3]
-        labels = ["Date03_Sub04_boxmedium"]
+        #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
+        # labels = ["Date06_Sub07_boxmedium"]
         # labels = [
         #     "Date01_Sub01_boxmedium_hand",
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
         #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
 
-        #labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium"]
-        
-        #     "Date01_Sub01_boxmedium_hand"]
-        #      , "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
-        #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
-        #     "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
-        #     "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
-        #     "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
-        #     "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
-        #     "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
-        #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
-        # ]
+        labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
+            "Date01_Sub01_boxmedium_hand",
+            "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+            "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
+            "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
+            "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
+            "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
+            "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
+            "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
+            "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
+        ]
 
         #print("\nTraining on:", labels)
-        frames_subclip = 64 #180
-        W = 4 # 1  # Window size divisor of frames_subclip
+        frames_subclip = 64 #400
+        W = 1  # Window size divisor of frames_subclip
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
         split_dict = load_split_from_path(path_to_file)
 
         # Specify device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-  
-        model_combined = CombinedTrans(frames_subclip)
 
         # #Specify the path to the checkpoint
         # model_path = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_leafy-smoke-2619_epoch_16.pt"
@@ -1747,25 +1793,28 @@ if __name__ == "__main__":
         # model_combined.load_state_dict(checkpoint)
         
         # Move the model to device
-        model_combined.to(device)
 
         # # Assuming 'model' is your PyTorch model for inference: epoch = 1
         # for param in model.parameters():
         #     param.requires_grad = False
         
         # Set the model to evaluation mode (you might want to set it to evaluation mode with `.eval()` if you're not training)
-        model_combined.train()
+        # model_combined.train()
 
         # Initialize Trainer
         #trainer = pl.Trainer(max_epochs=wandb.config.epochs, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
         
         # Contains all the logic 
-        get_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, W, model_combined, wandb)
-        #print("Ready to train with get_dataset", flush=False)
+        get_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, W, wandb, device)
+        #breakpoint()
+        print("Ready to train with get_dataset", flush=True)
 
-        data_module = BehaveDataModule(get_dataset, split=split_dict)
-        #print("Ready to train with data_module", flush=False)
+        data_module = BehaveDataModule(get_dataset, split_dict, wandb.config.batch_size)
+        print("Ready to train with data_module", flush=True)
         
+        model_combined = CombinedTrans(frames_subclip)
+        model_combined.to(device)
+
         # Initialize Trainer
         trainer = pl.Trainer(max_epochs=wandb.config.epochs, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
         trainer.fit(model_combined,data_module)
