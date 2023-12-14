@@ -39,6 +39,7 @@ import math
 import argparse
 from datetime import datetime
 from memory_profiler import profile
+import pdb
 
 
 # Function to create timestamp
@@ -1746,7 +1747,7 @@ if __name__ == "__main__":
                 print(f"Processing label: {label}", flush=False)
                 for cam_id in cam_ids:
                     print(f"  Processing camera ID: {cam_id}", flush=False)
-                    base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame'
+                    base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame_numpy'
                     file_path = f'{base_path}/{label}.pkl'
 
                     # Check if file exists
@@ -1756,27 +1757,28 @@ if __name__ == "__main__":
 
                     with open(file_path, 'rb') as f:
                         dataset = pickle.load(f)
+                        #breakpoint()
 
                     # Process subclips
-                    #for start_idx in range(len(dataset[cam_id]) - frames_subclip, len(dataset[cam_id]), frames_subclip):
-                    for start_idx in range(0, frames_subclip):
+                    for start_idx in range(len(dataset[cam_id]) - frames_subclip, len(dataset[cam_id]), frames_subclip):
+                    #for start_idx in range(0, frames_subclip):
                         end_idx = start_idx + frames_subclip
                         if end_idx > len(dataset[cam_id]):
                             # Skip subclip if it's shorter than frames_subclip
                             print(f"  Skipping subclip from {start_idx} to {end_idx} - too short", flush=False)
-                            break
+                            continue
 
                         # Process the subclip
                         subclip_data = dataset[cam_id][start_idx:end_idx]
                         #print(f"  Processing subclip from {start_idx} to {end_idx}", flush=False)
-
+                        #breakpoint()
                         # Pre-calculate the vstacked arrays outside the loop
                         current_data_dict = {key: np.vstack([subclip_data[idx][key] for idx in range(len(subclip_data))]) for key in selected_keys}
                         # Prepare the data dictionary for the current iteration
                         current_data_dict['scene'] = dataset[cam_id][0]['scene']
 
-                        #for idx in range(len(subclip_data) - 1,len(subclip_data)):
-                        for idx in range(len(subclip_data)):
+                        for idx in range(len(subclip_data) - 1,len(subclip_data)):
+                        #for idx in range(len(subclip_data)):
                             #print(f"Processing subclip index {idx + 1}/{len(subclip_data)}", flush=False)
 
                             # Determine the window range

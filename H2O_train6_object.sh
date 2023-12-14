@@ -35,7 +35,7 @@ export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHO
 export CONDA_OVERRIDE_CUDA=11.8
 
 #python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
-python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train5.py "$@"
+python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_att.py "$@"
 
 
 echo "DONE!"

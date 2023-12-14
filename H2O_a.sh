@@ -3,7 +3,7 @@
 #SBATCH --job-name="rendering"
 #SBATCH --error=/scratch_net/biwidl307/lgermano/H2O/log/error/%j.err
 #SBATCH --output=/scratch_net/biwidl307/lgermano/H2O/log/out/%j.out
-#SBATCH --mem-per-cpu=70G
+#SBATCH --mem=40G
 #SBATCH --gres=gpu:1
 ##SBATCH --constraint="a6000"
 
@@ -35,7 +35,7 @@ export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHO
 export CONDA_OVERRIDE_CUDA=11.8
 
 #python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
-python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train5.py "$@"
+python /scratch_net/biwidl307/lgermano/H2O/a.py "$@"
 
 
 echo "DONE!"

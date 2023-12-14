@@ -38,6 +38,9 @@ from scipy.spatial import cKDTree
 import math
 import argparse
 from datetime import datetime
+#from memory_profiler import profile
+import pdb
+
 
 # Function to create timestamp
 def timestamp():
@@ -50,9 +53,9 @@ def create_parser():
     parser.add_argument('--third_option', choices=['obj_pose', 'enc_obj_pose'], help='Specify the third option.')
     parser.add_argument('--fourth_option', choices=['obj_trans', 'norm_obj_trans', 'enc_norm_obj_trans'], help='Specify the fourth option.')
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
-    parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-3])
-    parser.add_argument('--epochs', nargs='+', type=int, default=[50])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[32])
+    parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
+    parser.add_argument('--epochs', nargs='+', type=int, default=[120])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[128])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -71,7 +74,7 @@ if __name__ == "__main__":
     parser = create_parser()
     args = parser.parse_args()
     
-    print(args)
+    #print(args)
 
     best_overall_avg_loss_val = float('inf')
     best_params = None
@@ -141,6 +144,7 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER
             },
+            #mode="disabled"
         )
 
         def load_intrinsics_and_distortion(camera_id, base_path):
@@ -167,8 +171,8 @@ if __name__ == "__main__":
             object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
             object_vertices = np.asarray(object_mesh.vertices)
             
-            # Debug: #print object vertices before any transformation
-            ##print("Object vertices before any transformation: ", object_vertices)
+            # Debug: ##print object vertices before any transformation
+            ###print("Object vertices before any transformation: ", object_vertices)
 
             # Compute the centroid of the object
             centroid = np.mean(object_vertices, axis=0)
@@ -185,7 +189,7 @@ if __name__ == "__main__":
             T_mesh[:3, 3] = obj_trans
             
             # Debug: Verify T_mesh
-            # #print("T_mesh: ", T_mesh)
+            # ##print("T_mesh: ", T_mesh)
 
             # # Extract rotation and translation of camera from world coordinates
             # R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
@@ -197,7 +201,7 @@ if __name__ == "__main__":
             # T_cam[:3, 3] = t_w_c
             
             # # Debug: Verify T_cam
-            # #print("T_cam: ", T_cam)
+            # ##print("T_cam: ", T_cam)
 
             # Ensure types are float64
             #T_cam = T_cam.astype(np.float64)
@@ -208,7 +212,7 @@ if __name__ == "__main__":
             T_mesh_in_cam = T_mesh
 
             # Debug: Verify T_mesh_in_cam
-            ##print("T_mesh_in_cam: ", T_mesh_in_cam)
+            ###print("T_mesh_in_cam: ", T_mesh_in_cam)
             
             # Transform the object's vertices using T_mesh_in_cam
             transformed_vertices = object_vertices
@@ -216,7 +220,7 @@ if __name__ == "__main__":
             transformed_vertices = transformed_vertices_homogeneous[:3, :].T
 
             # Debug: Check transformed object
-            # #print("Transformed vertices: ", transformed_vertices)
+            # ##print("Transformed vertices: ", transformed_vertices)
 
             # Update object mesh vertices
             object_mesh.vertices = o3d.utility.Vector3dVector(transformed_vertices)
@@ -320,8 +324,8 @@ if __name__ == "__main__":
 
         def project_frames(data_frames, timestamps, N):
 
-            #print(len(data_frames))
-            #print(len(timestamps))
+            ##print(len(data_frames))
+            ##print(len(timestamps))
 
             # Initialize a dictionary to hold lists for each camera
             cam_lists = {
@@ -347,7 +351,7 @@ if __name__ == "__main__":
 
                 for cam_id in [0, 1, 2, 3]:
                     frame = copy.deepcopy(input_frame)
-                    #print(f"\nProcessing frame {idx}: {frame}")
+                    ##print(f"\nProcessing frame {idx}: {frame}")
                     cam_params = load_config(cam_id, base_path_template, frame['date'])
                     intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path_template)
                     transformed_smpl_pose, transformed_smpl_trans = transform_smpl_to_camera_frame(frame['pose'], frame['trans'], cam_params)
@@ -421,9 +425,9 @@ if __name__ == "__main__":
 
             scene_boundaries = []
 
-            # Debug: #print sample from cam0_list after all operations
+            # Debug: ##print sample from cam0_list after all operations
             #if cam_lists[0]:
-                #print(f"\nSample from cam0_list prior to all operations: {cam_lists[0][0]}")
+                ##print(f"\nSample from cam0_list prior to all operations: {cam_lists[0][0]}")
 
             # Gather components for normalization (here the normalization is over the whole test set)
             for cam_id in range(4):
@@ -439,8 +443,8 @@ if __name__ == "__main__":
             max_value = scene_boundaries_np.max()
             min_value = scene_boundaries_np.min()
 
-            #print(f"\nMin value for normalization: {min_value}")
-            #print(f"Max value for normalization: {max_value}")
+            ##print(f"\nMin value for normalization: {min_value}")
+            ##print(f"Max value for normalization: {max_value}")
 
             for cam_id in range(4):
                 for idx in range(len(cam_lists[cam_id])):
@@ -449,20 +453,20 @@ if __name__ == "__main__":
                     cam_lists[cam_id][idx]['norm_joints_trace'] = normalize(cam_lists[cam_id][idx]['joints_trace'], 0, 2*np.pi, min_value, max_value)
 
             #if cam_lists[0]:
-                #print(f"\nSample from cam0_list after normalizing: {cam_lists[0][0]}")
+                ##print(f"\nSample from cam0_list after normalizing: {cam_lists[0][0]}")
                 
             # Unroll angle hierarchy
-            #print("\nUnrolling angle hierarchy...") 
+            ##print("\nUnrolling angle hierarchy...") 
             for cam_id in range(4):
                 for idx in range(len(cam_lists[cam_id])):
                     cam_lists[cam_id][idx]['unrolled_pose'] = process_pose_params(cam_lists[cam_id][idx]['pose'])
                     cam_lists[cam_id][idx]['unrolled_pose_trace'] = process_pose_params(cam_lists[cam_id][idx]['pose_trace'])
 
             #if cam_lists[0]:
-                #print(f"\nSample from cam0_list after unrolling: {cam_lists[0][0]}")
+                ##print(f"\nSample from cam0_list after unrolling: {cam_lists[0][0]}")
 
             # Positional encoding
-            #print("\nApplying positional encoding...")
+            ##print("\nApplying positional encoding...")
             L = wandb.config.L
             for cam_id in range(4):
                 for idx in range(len(cam_lists[cam_id])):
@@ -473,9 +477,9 @@ if __name__ == "__main__":
                     cam_lists[cam_id][idx]['enc_norm_joints_trace'] = gamma(cam_lists[cam_id][idx]['norm_joints_trace'], L)
                     cam_lists[cam_id][idx]['enc_unrolled_pose_trace'] = gamma(cam_lists[cam_id][idx]['unrolled_pose_trace'], L)
 
-            # Debug: #print sample from cam0_list after all operations
+            # Debug: ##print sample from cam0_list after all operations
             #if cam_lists[0]:
-                #print(f"\nSample from cam0_list after all operations: {cam_lists[0][0]}")
+                ##print(f"\nSample from cam0_list after all operations: {cam_lists[0][0]}")
 
             return [cam_lists[0], cam_lists[1], cam_lists[2], cam_lists[3]]
 
@@ -537,42 +541,42 @@ if __name__ == "__main__":
         
         def render_smpl(transformed_pose, transformed_trans, betas):
         
-            #print("Start of render_smpl function.")
+            ##print("Start of render_smpl function.")
             
             batch_size = 1
-            #print(f"batch_size: {batch_size}")
+            ##print(f"batch_size: {batch_size}")
 
             # Create the SMPL layer
             smpl_layer = SMPL_Layer(
                 center_idx=0,
                 gender='male',
                 model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
-            #print("SMPL_Layer created.")
+            ##print("SMPL_Layer created.")
 
             # Process pose parameters
             pose_params_start = torch.tensor(transformed_pose[:3], dtype=torch.float32)
             pose_params_rest = torch.tensor(transformed_pose[3:72], dtype=torch.float32)
             pose_params_rest[-6:] = 0
             pose_params = torch.cat([pose_params_start, pose_params_rest]).unsqueeze(0).repeat(batch_size, 1)
-            #print(f"pose_params shape: {pose_params.shape}")
+            ##print(f"pose_params shape: {pose_params.shape}")
 
             shape_params = torch.tensor(betas, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-            #print(f"shape_params shape: {shape_params.shape}")
+            ##print(f"shape_params shape: {shape_params.shape}")
 
             obj_trans = torch.tensor(transformed_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-            #print(f"obj_trans shape: {obj_trans.shape}")
+            ##print(f"obj_trans shape: {obj_trans.shape}")
 
             # GPU mode
             cuda = torch.cuda.is_available()
-            #print(f"CUDA available: {cuda}")
+            ##print(f"CUDA available: {cuda}")
             device = torch.device("cuda:0" if cuda else "cpu")
-            #print(f"Device: {device}")
+            ##print(f"Device: {device}")
             
             pose_params = pose_params.to(device)
             shape_params = shape_params.to(device)
             obj_trans = obj_trans.to(device)
             smpl_layer = smpl_layer.to(device)
-            #print("All tensors and models moved to device.")
+            ##print("All tensors and models moved to device.")
 
             # Forward from the SMPL layer
             verts, J = smpl_layer(pose_params, th_betas=shape_params, th_trans=obj_trans)
@@ -808,7 +812,7 @@ if __name__ == "__main__":
                 return 0
             rec = np.sort(np.array(rec))
             n = len(rec)
-            print(n)
+            #print(n)
             prec = np.arange(1, n + 1) / float(n)
             rec = rec.reshape(-1)
             prec = prec.reshape(-1)
@@ -1269,67 +1273,106 @@ if __name__ == "__main__":
             #     return [optimizer], [scheduler]
 
         class BehaveDataset(Dataset):
-            def __init__(self, cam_data):
-                self.cam_data = cam_data
+            def __init__(self, labels, cam_ids, frames_subclip, selected_keys, wandb, device):
+                self.labels = labels
+                self.cam_ids = cam_ids
+                self.frames_subclip = frames_subclip
+                self.selected_keys = selected_keys
+                self.device = device
+                self.data_info = []  # Store file path, camera id, subclip index range, and window indices
+
+                #base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame_numpy'
+                base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
+                print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
+
+                for label in self.labels:
+                    for cam_id in self.cam_ids:
+                        file_path = os.path.join(base_path, label + '.pkl')
+                        print(file_path)
+                        if os.path.exists(file_path):
+                            print(f"Found file: {file_path}", flush=True)
+                            with open(file_path, 'rb') as f:
+
+                                if len(self.labels) == 1:
+
+                                    self.dataset = pickle.load(f)
+                                    for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                    #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                        end_idx = start_idx + self.frames_subclip
+                                        if end_idx <= len(self.dataset[cam_id]):
+                                            self.data_info.append((file_path, cam_id, start_idx, end_idx))
+
+                                else:
+
+                                    dataset = pickle.load(f)
+                                    for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                    #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                        end_idx = start_idx + self.frames_subclip
+                                        if end_idx <= len(dataset[cam_id]):
+                                            self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
             def __len__(self):
-                return len(self.cam_data[3])
+                print(len(self.data_info))
+                return len(self.data_info)
 
             def __getitem__(self, idx):
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                
-                # Extracting the required keys and converting them to tensors
-                def extract_and_convert(cam_id):
-                    # Keys for encoding of previous step 
-                    # keys = ['enc_unrolled_pose', 'enc_norm_joints', 'prev_enc_obj_pose', 'prev_enc_norm_obj_trans', 'obj_pose', 'obj_trans']
-                    keys = [ SMPL_pose, SMPL_joints, 'prev_obj_pose', 'prev_obj_trans', OBJ_pose, OBJ_trans]
-                    return tuple(torch.tensor(self.cam_data[cam_id][idx][key], dtype=torch.float32).to(device) for key in keys)
-                #print(extract_and_convert(0), extract_and_convert(1), extract_and_convert(2), extract_and_convert(3))
-                return extract_and_convert(0), extract_and_convert(1), extract_and_convert(2), extract_and_convert(3)
+                file_path, cam_id, start_idx, end_idx = self.data_info[idx]
 
+                # Only possible if there is one training label
+                if len(self.labels) == 1:
+                    subclip_data = self.dataset[cam_id][start_idx:end_idx]
+                    scene = self.dataset[cam_id][0]['scene']
+                else:
+                    with open(file_path, 'rb') as f:
+                        dataset = pickle.load(f)
+
+                    subclip_data = dataset[cam_id][start_idx:end_idx]
+                    scene = dataset[cam_id][0]['scene']
+
+                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32).to(self.device) for key in self.selected_keys]
+
+                return items, scene
 
         class BehaveDataModule(pl.LightningDataModule):
-            def __init__(self, dataset, split, batch_size=wandb.config.batch_size):
+            def __init__(self, dataset, split, batch_size):
                 super(BehaveDataModule, self).__init__()
                 self.dataset = dataset
                 self.batch_size = batch_size
                 self.split = split
 
                 self.train_indices = []
+                self.val_indices = []
                 self.test_indices = []
-
                 train_identifiers = []
                 test_identifiers = []
 
-                for idx, data in enumerate(self.dataset.cam_data[3]):
-                    if data['scene'] in self.split['train']:
+                for idx, (data, scene_name) in enumerate(self.dataset):
+                    scene = scene_name  # Assuming the scene name is the second element in the tuple
+                    if scene in self.split['train']:
                         self.train_indices.append(idx)
-                        train_identifiers.append(data['scene'])
-                    elif data['scene'] in self.split['test']:
+                        train_identifiers.append(scene)
+                    elif scene in self.split['test']:
                         self.test_indices.append(idx)
-                        test_identifiers.append(data['scene'])
+                        test_identifiers.append(scene)
 
-                # Print the list of identifiers in the train and test set
-                print(f"Identifiers in train set: {train_identifiers}")
-                print(f"Identifiers in test set: {test_identifiers}")
+                self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
-                #################
-                # Using training set as validation
-                # self.test_indices = self.train_indices
-                #################
+                # Uncomment to print identifiers in train and test sets
+                # print(f"Identifiers in train set: {set(train_identifiers)}")
+                # print(f"Identifiers in test set: {set(test_identifiers)}")
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
                 return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)
 
             def val_dataloader(self):
-                # Assuming validation set is not provided, so using test set as validation
-                test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size)
+                val_dataset = Subset(self.dataset, self.val_indices)
+                return DataLoader(val_dataset, batch_size=self.batch_size)
 
             def test_dataloader(self):
                 test_dataset = Subset(self.dataset, self.test_indices)
                 return DataLoader(test_dataset, batch_size=self.batch_size)
+
 
         def axis_angle_loss(pred, true):
             # Assuming pred and true are [batch_size, 3] tensors where
@@ -1361,221 +1404,186 @@ if __name__ == "__main__":
 
             return torch.mean(loss)
 
-        class CombinedMLP(pl.LightningModule):
-            def __init__(self, input_dim, output_stage1, input_stage2, output_stage2, input_stage3, output_dim):
-                super(CombinedMLP, self).__init__()
+        class MLP(nn.Module):
+            def __init__(self, input_dim, output_dim):
+                super(MLP, self).__init__()
+                self.layers = nn.Sequential(
+                    nn.Linear(input_dim, output_dim),
+                    nn.ReLU(),
+                    #nn.Linear(output_dim, output_dim)
+                )
 
-                # Two instances of the MLP model for two stages
-                self.model1 = MLP1(input_dim, output_stage1)
-                self.model2 = MLP2(input_stage2, output_stage2)
-                self.model3_pose = MLP3(input_stage3,output_dim)
-                self.model3_trans = MLP3(input_stage3,output_dim)
-                self.automatic_optimization = False
+            def forward(self, x):
+                return self.layers(x)
+
+
+        class CombinedTrans(pl.LightningModule):
+            def __init__(self, frames_subclip, masked_frames):
+                super(CombinedTrans, self).__init__()
+
                 self.validation_losses = []
-                self.best_avg_loss_val = float('inf')
-                self.all_ADD_values = {0: [], 1: [], 2: [], 3: []}
-                self.all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
-                self.all_CD_values = {0: [], 1: [], 2: [], 3: []}
-                self.max_th = 0.10
-            
+                self.frames_subclip = frames_subclip
+                self.masked_frames = masked_frames
+                self.automatic_optimization = False
+                self.num_heads = 4
+                self.d_model = 128
+                self.mlp_output_pose = MLP(self.d_model, 3)
+                self.mlp_output_trans = MLP(self.d_model, 3)
+                self.mlp_smpl_pose = MLP(72, self.d_model)
+                self.mlp_smpl_joints = MLP(72, self.d_model)                
+                self.mlp_obj_pose = MLP(3, self.d_model)
+                self.mlp_obj_trans = MLP(3, self.d_model)
+
+                self.transformer_model_trans = nn.Transformer(
+                    d_model = self.d_model, 
+                    nhead = self.num_heads,
+                    num_encoder_layers = 6, 
+                    num_decoder_layers = 6,
+                    dropout = 0.05,
+                    activation = 'gelu',
+                    )
+
+                self.transformer_model_pose = nn.Transformer(
+                    d_model = self.d_model,
+                    nhead= self.num_heads,
+                    num_encoder_layers= 6, 
+                    num_decoder_layers= 6,
+                    dropout = 0.05,
+                    activation = 'gelu',
+                    )
+
             def forward(self, cam_data):
+                smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
-                smpl_pose, smpl_joints, obj_pose, obj_trans, _, _ = cam_data
+                smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
 
-                x_stage1_pose = self.model1(smpl_pose)
-                #x_stage1_joints = self.model1(smpl_joints.reshape(-1,72)) Needed for 24,3 shape of joints
-                x_stage1_joints = self.model1(smpl_joints)
-
-                concatenated_input = torch.cat((x_stage1_pose, x_stage1_joints), dim=1)
-
-                x_stage2 = self.model2(concatenated_input)
-                print("x_stage2 shape:", x_stage2.shape)
-
-                # # Batched pos encoding 
-                # def encode(tensor, L):
-                #     # Convert to a list of tensors for each batch
-                #     batch_tensors = []
-                #     for batch in tensor:
-                #         tensors = [gamma(p, L) for p in batch]
-                #         concatenated_tensor = torch.cat(tensors, dim=0)  # change from stack to cat
-                #         batch_tensors.append(concatenated_tensor)
-
-                #     # Stack the tensors along the first dimension to create a new tensor
-                #     final_tensor = torch.stack(batch_tensors)
-                    
-                #     return final_tensor
+                # print("SMPL Pose:", smpl_pose.shape)
+                # print("SMPL Joints:", smpl_joints.shape)
+                # print("Object Pose:", obj_pose.shape)
+                # print("Object Trans:", obj_trans.shape)
                 
-                # x_stage2_enc = encode(x_stage2, L=wandb.config.L)
+                # Embedding inputs
+                embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
+                embedded_obj_pose = self.mlp_obj_pose(obj_pose)
+                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
+                embedded_obj_trans = self.mlp_obj_trans(obj_trans)
 
-                # x_stage3_trans = self.model3_trans(torch.cat((x_stage2_enc,obj_trans), dim=-1))
-                # x_stage3_pos = self.model3_pose(torch.cat((x_stage2_enc,obj_pose), dim=-1))
+                # Print shapes of the embedded tensors
+                # print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
+                # print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
+                # print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
+                # print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
 
-                # They should both (BATCH_SIZE,3) 
+                # positions with True are not allowed to attend
+                # masking should happen when only in the frames
 
-                x_stage3_trans = self.model3_trans(torch.cat((x_stage2,obj_trans), dim=-1))
-                x_stage3_pos = self.model3_pose(torch.cat((x_stage2,obj_pose), dim=-1))
+                # # Initialize tgt_mask
+                # tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
 
-                return x_stage3_pos, x_stage3_trans
+                # # Iterate to set the last self.masked_frames rows of the upper diagonal matrix to True
+                # for i in range(wandb.config.batch_size * self.num_heads):
+                #     for j in range(self.frames_subclip):
+                #         for row in range(self.d_model - self.masked_frames, self.d_model):
+                #             tgt_mask[i, j, row, row:] = True  # Set the elements on and above the diagonal to True
 
-            def training_step(self, batch, batch_idx):
-                cam0_data, cam1_data, cam2_data, cam3_data = batch
+                # Separe pose and joints
+                # Transformer models
 
-                def smooth_sign_loss(y, y_hat, alpha=wandb.config.alpha):
-                    # Clamp the product to prevent extreme values
-                    product = torch.clamp(alpha * y * y_hat, -10, 10)
-                    
-                    # Compute the stable loss
-                    loss = (1 - torch.sigmoid(product)).sum()
-                    
-                    return loss
+                predicted_obj_pose_emb = self.transformer_model_pose(embedded_smpl_pose, embedded_obj_pose, tgt_mask=None)#tgt_mask)
+                predicted_obj_trans_emb = self.transformer_model_trans(embedded_smpl_joints, embedded_obj_trans, tgt_mask=None)#tgt_mask)
 
-                # Define weights
-                lambda_1 = wandb.config.lambda_1
-                lambda_2 = wandb.config.lambda_2
-                lambda_3 = wandb.config.lambda_3
-                lambda_4 = wandb.config.lambda_4
-                
-                def forward_pass_for_camera(self, cam_data):
-                    y_hat_stage3_pos, y_hat_stage3_trans = self(cam_data)
-                    y_stage3_pos = cam_data[-2]
-                    y_stage3_trans = cam_data[-1]
-                    
-                    return y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans
+                predicted_obj_pose = self.mlp_output_pose(predicted_obj_pose_emb)
+                predicted_obj_trans = self.mlp_output_pose(predicted_obj_trans_emb)
 
-                # Usage example for cam0, cam1, cam2, cam3
-                y_hat_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_pos_cam0, y_stage3_trans_cam0 = forward_pass_for_camera(self, cam0_data)
-                y_hat_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_pos_cam1, y_stage3_trans_cam1 = forward_pass_for_camera(self, cam1_data)
-                y_hat_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_pos_cam2, y_stage3_trans_cam2 = forward_pass_for_camera(self, cam2_data)
-                y_hat_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_pos_cam3, y_stage3_trans_cam3 = forward_pass_for_camera(self, cam3_data)
+                # Print dimensions of the tensors
+                # print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
+                # print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
 
-                def geodesic_loss(r1, r2):
-                    """Compute the geodesic distance between two axis-angle representations."""
-                    return torch.min(torch.norm(r1 - r2, dim=-1), torch.norm(r1 + r2, dim=-1)).mean()
+                return predicted_obj_pose, predicted_obj_trans
 
-                def compute_loss(y_hat_pos, y_pos, y_hat_trans, y_trans, lambda_1, lambda_2, lambda_3, lambda_4):
-                    pos_loss = lambda_2 * axis_angle_loss(y_hat_pos, y_pos) + \
-                            lambda_1 * F.mse_loss(y_hat_pos, y_pos) + \
-                            lambda_2 * (1 - F.cosine_similarity(y_hat_pos, y_pos)) + \
-                            lambda_3 * smooth_sign_loss(y_hat_pos, y_pos) + \
-                            lambda_4 * geodesic_loss(y_hat_pos, y_pos)
+            def training_step(self, cam_data):
+                #print(cam_data)
+                smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
-                    
-                    trans_loss = lambda_1 * F.mse_loss(y_hat_trans, y_trans) + \
-                                lambda_2 * (1 - F.cosine_similarity(y_hat_trans, y_trans)) + \
-                                lambda_3 * smooth_sign_loss(y_hat_trans, y_trans)
-                    
-                    return pos_loss + trans_loss
+                # Assuming predictions contain the masked_obj_pose and masked_obj_trans
+                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
-                loss_cam0 = compute_loss(y_hat_stage3_pos_cam0, y_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_trans_cam0, lambda_1, lambda_2, lambda_3,lambda_4)
-                loss_cam1 = compute_loss(y_hat_stage3_pos_cam1, y_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_trans_cam1, lambda_1, lambda_2, lambda_3,lambda_4)
-                loss_cam2 = compute_loss(y_hat_stage3_pos_cam2, y_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_trans_cam2, lambda_1, lambda_2, lambda_3,lambda_4)
-                loss_cam3 = compute_loss(y_hat_stage3_pos_cam3, y_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_trans_cam3, lambda_1, lambda_2, lambda_3,lambda_4)
-                total_loss = (loss_cam1 + loss_cam0 + loss_cam2 + loss_cam3)**2
-                # print("total_loss:", total_loss)
+                # Compute L2 loss (MSE) for both pose and translation
+                # smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
+                # smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
+                pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
+                trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
-                avg_loss = total_loss.mean()
-                # print("avg_loss:", avg_loss)
+                # Combine the losses
+                total_loss = pose_loss + trans_loss
 
+                # Logging the losses
+                self.log('train_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                #self.log('train_smpl_pose_loss', smpl_pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                #self.log('train_smpl_joints_loss', smpl_joints_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('train_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('train_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-                # print("Shape of loss_cam1_stage2:", loss_cam1_stage2.shape)
-                # print("Shape of total_loss:", total_loss.shape)
-                # print("Shape of avg_loss:", avg_loss.shape)
-
-                # Log the individual and average losses to wandb with extended labels
+                # Logging the losses to wandb
                 wandb.log({
-                    'Train Trans+Angle Batch-Averaged Average 4Cameras': avg_loss.item(),
-                    # "Original_Stage1_Loss": loss_original_stage1.item(),
-                    # "Camera1_Stage2_Loss": loss_cam1_stage2.item(),
-                    # Add other individual losses if needed
+                    'train_total_loss': total_loss.item(),
+                    'train_pose_loss': pose_loss.item(),
+                    #'train_smpl_pose_loss': smpl_pose_loss.item(),
+                    #'train_smpl_joints_loss': smpl_joints_loss.item(),
+                    'train_trans_loss': trans_loss.item(),
                 })
-
-                
+               
                 # Backward pass and optimization
-                self.manual_backward(avg_loss)
+                self.manual_backward(total_loss)
                 optimizer = self.optimizers()
                 optimizer.step()
                 optimizer.zero_grad()
 
-                return avg_loss
+                return None
 
-            def validation_step(self, batch, batch_idx):
-                cam0_data, cam1_data, cam2_data, cam3_data = batch
+            def validation_step(self, cam_data, batch_idx):
+                # Get the data from cam_data as in training_step
+                smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = cam_data[-2][:]
 
-                def forward_pass_for_camera(self, cam_data):
-                    y_hat_stage3_pos, y_hat_stage3_trans = self(cam_data)
-                    y_stage3_pos = cam_data[-2]
-                    y_stage3_trans = cam_data[-1]
-                    
-                    return y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans
+                # Run forward pass as in training_step
+                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
-                # Usage example for cam0, cam1, cam2, cam3
-                y_hat_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_pos_cam0, y_stage3_trans_cam0 = forward_pass_for_camera(self, cam0_data)
-                y_hat_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_pos_cam1, y_stage3_trans_cam1 = forward_pass_for_camera(self, cam1_data)
-                y_hat_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_pos_cam2, y_stage3_trans_cam2 = forward_pass_for_camera(self, cam2_data)
-                y_hat_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_pos_cam3, y_stage3_trans_cam3 = forward_pass_for_camera(self, cam3_data)
+                # Compute L2 loss (MSE) for both pose and translation
+                #smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
+                #smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
+                pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
+                trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
-                def compute_loss_val(y_hat_pos, y_pos, y_hat_trans, y_trans):
-                    pos_loss = axis_angle_loss(y_hat_pos, y_pos)  
-                    trans_loss = F.mse_loss(y_hat_trans, y_trans)
-                    
-                    return pos_loss + trans_loss, pos_loss, trans_loss
+                # Combine the losses
+                total_loss = pose_loss + trans_loss
 
-                # Compute loss and component losses for each camera
-                loss_cam0, pos_loss_cam0, trans_loss_cam0 = compute_loss_val(y_hat_stage3_pos_cam0, y_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_trans_cam0)
-                loss_cam1, pos_loss_cam1, trans_loss_cam1 = compute_loss_val(y_hat_stage3_pos_cam1, y_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_trans_cam1)
-                loss_cam2, pos_loss_cam2, trans_loss_cam2 = compute_loss_val(y_hat_stage3_pos_cam2, y_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_trans_cam2)
-                loss_cam3, pos_loss_cam3, trans_loss_cam3 = compute_loss_val(y_hat_stage3_pos_cam3, y_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_trans_cam3)
+                self.validation_losses.append(total_loss)
 
-                # Calculate average losses
-                avg_loss = (loss_cam0 + loss_cam1 + loss_cam2 + loss_cam3) / 4
-                avg_loss_pos = (pos_loss_cam0 + pos_loss_cam1 + pos_loss_cam2 + pos_loss_cam3) / 4
-                avg_loss_trans = (trans_loss_cam0 + trans_loss_cam1 + trans_loss_cam2 + trans_loss_cam3) / 4
+                # Log the losses. The logging method might differ slightly based on your framework
+                self.log('val_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                #self.log('val_smpl_pose_loss', smpl_pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                #self.log('val_smpl_joints_loss', smpl_joints_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('val_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                self.log('val_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-                # Log losses using wandb with extended labels
+                # Logging the losses to wandb
                 wandb.log({
-                    'Val Trans+Angle Batch-Averaged Average 4Cameras': avg_loss.item(),
-                    'Val AxisAngleLoss Angle Batch-Averaged Average 4Cameras': avg_loss_pos.item(),
-                    'Val MSE Trans Batch-Averaged Average 4Cameras': avg_loss_trans.item()
+                    'val_total_loss': total_loss.item(),
+                    'val_pose_loss': pose_loss.item(),
+                    #'val_smpl_pose_loss': smpl_pose_loss.item(),
+                    #'val_smpl_joints_loss': smpl_joints_loss.item(),
+                    'val_trans_loss': trans_loss.item(),
                 })
 
-                self.log('val_loss', avg_loss, prog_bar=False, logger=False)
+                return {'val_loss': total_loss}
 
-                self.validation_losses.append(avg_loss)
-                obj_template_path = "/scratch_net/biwidl307_second/lgermano/behave/objects/boxmedium/boxmedium.obj"
-
-                # Existing code for camera 0
-                add, add_s, cd = evaluate_camera(y_hat_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_pos_cam0, y_stage3_trans_cam0, obj_template_path)
-                self.all_ADD_values[0].append(add)
-                self.all_ADD_S_values[0].append(add_s)
-                self.all_CD_values[0].append(cd)
-
-                # Cam 1
-                add, add_s, cd = evaluate_camera(y_hat_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_pos_cam1, y_stage3_trans_cam1, obj_template_path)
-                self.all_ADD_values[1].append(add)
-                self.all_ADD_S_values[1].append(add_s)
-                self.all_CD_values[1].append(cd)
-
-                # Code for camera 2
-                add, add_s, cd = evaluate_camera(y_hat_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_pos_cam2, y_stage3_trans_cam2, obj_template_path)
-                self.all_ADD_values[2].append(add)
-                self.all_ADD_S_values[2].append(add_s)
-                self.all_CD_values[2].append(cd)
-
-                # Code for camera 3
-                add, add_s, cd = evaluate_camera(y_hat_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_pos_cam3, y_stage3_trans_cam3, obj_template_path)
-                self.all_ADD_values[3].append(add)
-                self.all_ADD_S_values[3].append(add_s)
-                self.all_CD_values[3].append(cd)
-
-                return {'val_loss': avg_loss}
-            
             def on_validation_epoch_end(self):
 
                 avg_val_loss = torch.mean(torch.tensor(self.validation_losses))
 
-                wandb.log({
-                    'Val Trans+Angle Epoch-Averaged Batch-Averaged Average 4Cameras': avg_val_loss.item()
-                    })
+                # wandb.log({
+                #     'Val Trans+Angle Epoch-Averaged Batch-Averaged Average 4Cameras': avg_val_loss.item()
+                #     })
                 self.log('avg_val_loss', avg_val_loss, prog_bar=True, logger=True)
                 wandb.log({"Learning Rate": self.optimizer.param_groups[0]['lr']})
                 if avg_val_loss < self.best_avg_loss_val:
@@ -1583,7 +1591,6 @@ if __name__ == "__main__":
                     print(f"Best number of epochs:{self.current_epoch}")
                     
                     # Save the model
-                    # model_save_path = f'/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_{wandb.run.name}_epoch_{self.current_epoch}.pt'
                     model_save_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_{wandb.run.name}_epoch_{self.current_epoch}.pt'
                     torch.save(self.state_dict(), model_save_path)
                     print(f'Model saved to {model_save_path}')
@@ -1591,64 +1598,22 @@ if __name__ == "__main__":
                 self.validation_losses = []  # reset for the next epoch
                 self.lr_scheduler.step(avg_val_loss)  # Update
 
-                for cam_id in range(4):
-                    auc_ADD = compute_auc(np.array(self.all_ADD_values[cam_id]), self.max_th) * 100
-                    auc_ADD_S = compute_auc(np.array(self.all_ADD_S_values[cam_id]), self.max_th) * 100
-                    cd_mean = sum(self.all_CD_values[cam_id]) / len(self.all_CD_values[cam_id])
-
-                    print(f"AUC boxmedium for camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD[m]: {cd_mean:.5f}")
-                    # wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": f"{auc_ADD:.2f}%"})
-                    # wandb.log({f"AUC boxmedium for camera {cam_id}, ADD-S": f"{auc_ADD_S:.2f}%"})
-                    # wandb.log({f"Boxmedium for camera {cam_id}, CD[m]": f"{cd_mean:.2f}"})
-                    wandb.log({f"AUC boxmedium for camera {cam_id}, ADD": auc_ADD})
-                    wandb.log({f"AUC boxmedium for camera {cam_id}, ADD-S": auc_ADD_S})
-                    wandb.log({f"Boxmedium for camera {cam_id}, CD[m]": cd_mean})
-
-
-                self.all_ADD_values = {0: [], 1: [], 2: [], 3: []}
-                self.all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
-                self.all_CD_values = {0: [], 1: [], 2: [], 3: []}
 
             def test_step(self, batch, batch_idx):
-                cam0_data, cam1_data, cam2_data, cam3_data = batch
-                
-                def forward_pass_for_camera(self, cam_data):
-                    y_hat_stage3_pos, y_hat_stage3_trans = self(cam_data)
-                    y_stage3_pos = cam_data[-2]
-                    y_stage3_trans = cam_data[-1]
-                    
-                    return y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans
+                # smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans, obj_pose, obj_trans = batch
 
-                # Usage example for cam0, cam1, cam2, cam3
-                y_hat_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_pos_cam0, y_stage3_trans_cam0 = forward_pass_for_camera(self, cam0_data)
-                y_hat_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_pos_cam1, y_stage3_trans_cam1 = forward_pass_for_camera(self, cam1_data)
-                y_hat_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_pos_cam2, y_stage3_trans_cam2 = forward_pass_for_camera(self, cam2_data)
-                y_hat_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_pos_cam3, y_stage3_trans_cam3 = forward_pass_for_camera(self, cam3_data)
+                # # Forward pass
+                # predicted_obj_pose, predicted_obj_trans = self.forward(batch)
 
-                def compute_loss_val(y_hat_pos, y_pos, y_hat_trans, y_trans):
-                    pos_loss = F.mse_loss(y_hat_pos, y_pos)  
-                    trans_loss = F.mse_loss(y_hat_trans, y_trans)
-                    
-                    return pos_loss + trans_loss
+                # # Combine the losses
+                # total_loss = pose_loss + trans_loss
 
-                loss_cam0 = compute_loss_val(y_hat_stage3_pos_cam0, y_stage3_pos_cam0, y_hat_stage3_trans_cam0, y_stage3_trans_cam0)
-                loss_cam1 = compute_loss_val(y_hat_stage3_pos_cam1, y_stage3_pos_cam1, y_hat_stage3_trans_cam1, y_stage3_trans_cam1)
-                loss_cam2 = compute_loss_val(y_hat_stage3_pos_cam2, y_stage3_pos_cam2, y_hat_stage3_trans_cam2, y_stage3_trans_cam2)
-                loss_cam3 = compute_loss_val(y_hat_stage3_pos_cam3, y_stage3_pos_cam3, y_hat_stage3_trans_cam3, y_stage3_trans_cam3)
-                avg_loss_test = (loss_cam1 + loss_cam0 + loss_cam2 + loss_cam3)/4
+                # # Logging the losses
+                # self.log('test_pose_loss', pose_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                # self.log('test_trans_loss', trans_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+                # self.log('test_total_loss', total_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-
-                self.log('avg_loss_test', avg_loss_test, prog_bar=False, logger=False)
-
-                wandb.log({
-                    'Batch-Averaged Average 4Cameras MSE Trans and Angle Test': avg_loss_test.item()
-                    })
-                # Log the individual losses for testing to wandb
-                # wandb.log({
-                #     "loss_test_stage1": loss_original_stage1.item(),
-                #     "loss_test_stage2": loss_cam1_stage2.item()
-                # })
-                return {'test_loss': avg_loss_test}
+                return 0
 
             def configure_optimizers(self):
                 if wandb.config.optimizer == "SGD":
@@ -1710,43 +1675,43 @@ if __name__ == "__main__":
             # # Create a dataset
 
             # # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
-            N = 2
+            # N = 2
 
             wandb.run.name = name
 
-            base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+            # base_path = "/scratch_net/biwidl307_second/lgermano/behave"
             #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
             # labels = sorted(set([label.split('.')[0] for label in os.listdir(base_path_trace) if '.color.mp4.npz' in label and 'boxmedium' not in label and 'Date03' not in label]))
-            # print(labels)
+            # #print(labels)
 
             # dataset = []
 
             # for label in labels:
-            #     print("Processing label:", label)
+            #     #print("Processing label:", label)
             #     selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
             #     selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
 
-            #     print("Object file path:", selected_file_path_obj)
-            #     print("SMPL file path:", selected_file_path_smpl)
+            #     #print("Object file path:", selected_file_path_obj)
+            #     #print("SMPL file path:", selected_file_path_smpl)
 
             #     all_data_frames = []
 
             #     with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
-            #         print("Loading object data")
+            #         #print("Loading object data")
             #         obj_pose = data_obj['angles']
             #         obj_trans = data_obj['trans']
             #         timestamps = data_obj['frame_times']
-            #         print("Object data loaded. Shape:", obj_pose.shape)
+            #         #print("Object data loaded. Shape:", obj_pose.shape)
 
             #     with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
-            #         print("Loading SMPL data")
+            #         #print("Loading SMPL data")
             #         pose = data_smpl['poses'][:,:72]  # SMPL model
             #         trans = data_smpl['trans']
             #         betas = data_smpl['betas']
-            #         print("SMPL data loaded. Shape:", pose.shape)
+            #         #print("SMPL data loaded. Shape:", pose.shape)
 
             #     for idx in range(trans.shape[0]):
-            #         print(f"Processing frame {idx}")
+            #         #print(f"Processing frame {idx}")
             #         frame_data = {}
             #         obj_name = label.split('_')[2]
             #         frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
@@ -1762,54 +1727,37 @@ if __name__ == "__main__":
 
             #     # Assuming interpolate_frames and project_frames are defined elsewhere in your script
             #     all_data_frames_int = interpolate_frames(all_data_frames, N)
-            #     print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int))
+            #     #print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int))
             #     del all_data_frames
 
             #     dataset_label = project_frames(all_data_frames_int, timestamps, N)
-            #     print("Projection done. Length of projected frames:", len(dataset_label))
+            #     #print("Projection done. Length of projected frames:", len(dataset_label))
             #     del all_data_frames_int
 
             #     data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{label}.pkl'
-            #     print(f"Saving data to {data_file_path}")
+            #     #print(f"Saving data to {data_file_path}")
             #     with open(data_file_path, 'wb') as f:
             #         pickle.dump(dataset_label, f)
-            #     print(f"Saved data for {label} to {data_file_path}")
+            #     #print(f"Saved data for {label} to {data_file_path}")
 
             #     del dataset_label
             #     gc.collect()
 
-        # Include now Date03. No processing. 
+        # Include now Date03. No processing.
 
-        # labels=['Date05_Sub06_boxmedium', 'Date04_Sub05_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
-        # 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
-        # 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand']
-
-        # labels=['Date05_Sub06_boxmedium', 'Date07_Sub08_boxmedium', 'Date03_Sub03_boxmedium', \
-        # 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium', 'Date02_Sub02_boxmedium_hand', 'Date07_Sub04_boxmedium', \
-        # 'Date06_Sub07_boxmedium', 'Date01_Sub01_boxmedium_hand', 'Date03_Sub03_boxlarge', 'Date03_Sub03_boxlarge', \
-        # 'Date03_Sub03_boxlarge', 'Date03_Sub03_boxlarge']
-
-        # labels = list(sorted(set([label.split('.')[0] for label in os.listdir(base_path_trace) if '.color.mp4.npz' in label and 'Date03' not in label])))
-        # labels = labels + ['Date03_Sub03_boxmedium', 'Date03_Sub04_boxmedium', 'Date03_Sub05_boxmedium']
-
+        # Define your labels, camera IDs, and frame range
+        cam_ids = [2]#[0, 1, 2, 3]
+        #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
+        #labels = ["Date06_Sub07_boxmedium"]
         # labels = [
-        #     "Date01_Sub01_boxlarge_hand",
         #     "Date01_Sub01_boxmedium_hand",
-        #     "Date02_Sub02_boxmedium_hand",
-        #     #"Date03_Sub03_boxlarge",
-        #     "Date03_Sub03_boxmedium",
-        #     "Date03_Sub04_boxmedium",
-        #     "Date03_Sub05_boxmedium",
-        #     "Date04_Sub05_boxlarge",
-        #     "Date04_Sub05_boxmedium",
-        #     "Date05_Sub06_boxmedium",
-        #     "Date06_Sub07_boxmedium",
-        #     "Date07_Sub04_boxmedium",
-        #     "Date07_Sub08_boxmedium"
+        #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
+        #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
 
-        labels = [
-            "Date01_Sub01_boxmedium_hand", "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+        labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
+            "Date01_Sub01_boxmedium_hand",
+            "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
             "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
             "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
             "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
@@ -1819,120 +1767,15 @@ if __name__ == "__main__":
             "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         ]
 
-        print("\nTraining on:", labels)
-
-        # Splitting the labels for validation and training
-        val_labels = [label for label in labels if label.startswith("Date03")]
-        train_labels = [label for label in labels if label not in val_labels]
-        train_set = val_labels + train_labels
-
-        dataset = []
-
-        #Processing camera data more efficiently
-        cam_data = {0: [], 1: [], 2: [], 3: []}
-
-        for label in labels:
-            print("Appending label",label)
-            #data_file_path = f'/scratch_net/biwidl307_second/lgermano/H2O/datasets/30fps_int_1frame/{label}.pkl'
-            data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{label}.pkl'
-
-            with open(data_file_path, 'rb') as f:
-                dataset = pickle.load(f)
-
-            for cam_id in range(4):
-                for idx in range(len(dataset[cam_id])):
-                    # TODO: add obj_template_path when diff object are present
-                    #data_dict = {key: dataset[cam_id][idx][key] for key in dataset[cam_id][idx] if key in ['enc_unrolled_pose_trace', 'enc_norm_joints_trace', 'obj_pose', 'obj_trans', 'scene']}
-                    data_dict = {key: dataset[cam_id][idx][key] for key in dataset[cam_id][idx] if key in [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans, 'scene']}
-                    
-                    # Use previous frame data for 'prev_' fields
-                    if idx != 0:
-                        data_dict.update({
-                            #'prev_enc_obj_pose': dataset[cam_id][idx-1]['enc_obj_pose'],
-                            #'prev_enc_norm_obj_trans': dataset[cam_id][idx-1]['enc_norm_obj_trans'],
-                            'prev_obj_pose': dataset[cam_id][idx-1][OBJ_pose],
-                            'prev_obj_trans':  dataset[cam_id][idx-1][OBJ_trans],
-                        })
-
-                        cam_data[cam_id].append(data_dict)
-                    else:
-                        data_dict.update({
-                                #'prev_enc_obj_pose': dataset[cam_id][idx-1]['enc_obj_pose'],
-                                #'prev_enc_norm_obj_trans': dataset[cam_id][idx-1]['enc_norm_obj_trans'],
-                                'prev_obj_pose': dataset[cam_id][idx][OBJ_pose],
-                                'prev_obj_trans':  dataset[cam_id][idx][OBJ_trans],
-                            })
-
-                        cam_data[cam_id].append(data_dict)
-            
-            del dataset
-
-        dataset_grouped = BehaveDataset(cam_data)
-
+        #print("\nTraining on:", labels)
+        frames_subclip = 64 #400
+        masked_frames = 1  
+        selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
         split_dict = load_split_from_path(path_to_file)
 
-        data_module = BehaveDataModule(dataset_grouped, split=split_dict, batch_size=BATCH_SIZE)
-
-        # Save the data module with reduced memory footprint
-        save_file_name = f"{wandb.run.name}.pt"
-        #data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
-        data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
-        full_save_path = os.path.join(data_file_path, save_file_name)
-        torch.save(data_module, full_save_path)
-
-        #####################################
-        # Train
-
-        # Load any data module
-        # save_file_name = "boxmedium_pose_joints_obj_pose_obj_trans.pt"
-
-        # # Define the local path where the data module will be saved
-        # data_file_path = '/scratch_net/biwidl307_second/lgermano/H2O/data_module'
-        # full_save_path = os.path.join(data_file_path, save_file_name)
-        
-        # # Load the data module back to a variable named data_module
-        # data_module = torch.load(full_save_path)
-
-        # # Load a subset of indices
-        # subsampled_train_indices = data_module.train_indices[::6]
-        # subsampled_val_indices = data_module.test_indices[::6]  # Assuming test set is used as validation
-
-        # # Update the original data_module with the subsampled indices
-        # data_module.train_indices = subsampled_train_indices
-        # data_module.test_indices = subsampled_val_indices
-
-        # Get the sizes of the subsampled datasets
-        train_size = len(data_module.train_indices)
-        val_size = len(data_module.test_indices)
-        test_size = len(data_module.test_indices)  # Assuming test set is used as validation
-
-        print(f"Size of train set: {train_size}")
-        print(f"Size of val set: {val_size}")
-        print(f"Size of test set: {test_size}")
-
         # Specify device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-        print(f"Running on: {device}")
-
-        # Initialize model
-        # Sizes depend on settings
-        input_dim = 72 * wandb.config.L * 2 if "enc" in SMPL_pose or "enc" in SMPL_joints else 72
-        input_stage3 = 3 * wandb.config.L * 2 if "enc" in OBJ_pose or "enc" in OBJ_trans else 6
-
-        
-        # Invariant
-        output_stage1 = 256
-        input_stage2 = 512
-        output_stage2 = 3
-        output_dim = 3
-       
-        print(f"Wandb run name:{wandb.run.name}")
-        model_combined = CombinedMLP(input_dim, output_stage1, input_stage2, output_stage2, input_stage3, output_dim)
-
-        # Move the model to device
-        model_combined.to(device)
 
         # #Specify the path to the checkpoint
         # model_path = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_leafy-smoke-2619_epoch_16.pt"
@@ -1941,55 +1784,85 @@ if __name__ == "__main__":
         # #Load the state dict from the checkpoint into the model
         # checkpoint = torch.load(model_path, map_location=device)
         # model_combined.load_state_dict(checkpoint)
+        
+        # Move the model to device
 
-        # # Freeze the weights of the trans head 
-        # for param in model_combined.model3_trans.parameters():
+        # # Assuming 'model' is your PyTorch model for inference: epoch = 1
+        # for param in model.parameters():
         #     param.requires_grad = False
-
+        
         # Set the model to evaluation mode (you might want to set it to evaluation mode with `.eval()` if you're not training)
-        model_combined.train()
+        # model_combined.train()
+
+        # Initialize Trainer
+        #trainer = pl.Trainer(max_epochs=wandb.config.epochs, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
+        
+        # Contains all the logic 
+        get_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        #breakpoint()
+        print("Ready to train with get_dataset", flush=True)
+
+        data_module = BehaveDataModule(get_dataset, split_dict, wandb.config.batch_size)
+        print("Ready to train with data_module", flush=True)
+        
+        model_combined = CombinedTrans(frames_subclip, masked_frames)
+        model_combined.to(device)
 
         # Initialize Trainer
         trainer = pl.Trainer(max_epochs=wandb.config.epochs, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
+        trainer.fit(model_combined,data_module)
 
-        # Fit the model
-        trainer.fit(model_combined, datamodule=data_module)
+        # # Get the current timestamp and format it
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-        # Adjusted computation for average validation loss
-        if model_combined.best_avg_loss_val < best_overall_avg_loss_val:
-            best_overall_avg_loss_val = model_combined.best_avg_loss_val
+        # # Incorporate the timestamp into the filename
+        # filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}_{timestamp}_{label}_{cam_id}.pt"
 
-            best_params = {
-                "learning_rate": LEARNING_RATE,
-                "architecture": "MLP",
-                "dataset": "BEHAVE",
-                "batch_size": BATCH_SIZE,
-                "dropout_rate": DROPOUT_RATE,
-                "layer_sizes_1": LAYER_SIZES_1,
-                "layer_sizes_3": LAYER_SIZES_3,
-                "alpha": ALPHA,
-                "lambda_1": LAMBDA_1,
-                "lambda_2": LAMBDA_2,
-                "lambda_3" : LAMBDA_3,
-                "L": L,
-                "epochs": EPOCHS
-            }
+        # # Save the model
+        # torch.save(model_combined.state_dict(), filename)
 
-            # # Optionally, to test the model:
-            # trainer.test(combined_model, datamodule=data_module)
+        # # Clear dataset to free up memory
+        # del dataset
+        # gc.collect()
 
-            # Save the model using WandB run ID
-            # filename = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/{wandb.run.name}.pt"
-            filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}.pt"
+        # Call the function with appropriate arguments
+        #training_loop(labels, cam_ids, frames_subclip, selected_keys, W, model_combined, wandb)
 
-            # Save the model
-            torch.save(model_combined, filename)
+        # # Adjusted computation for average validation loss
+        # if model_combined.best_avg_loss_val < best_overall_avg_loss_val:
+        #     best_overall_avg_loss_val = model_combined.best_avg_loss_val
+
+        #     best_params = {
+        #         "learning_rate": LEARNING_RATE,
+        #         "architecture": "MLP",
+        #         "dataset": "BEHAVE",
+        #         "batch_size": BATCH_SIZE,
+        #         "dropout_rate": DROPOUT_RATE,
+        #         "layer_sizes_1": LAYER_SIZES_1,
+        #         "layer_sizes_3": LAYER_SIZES_3,
+        #         "alpha": ALPHA,
+        #         "lambda_1": LAMBDA_1,
+        #         "lambda_2": LAMBDA_2,
+        #         "lambda_3" : LAMBDA_3,
+        #         "L": L,
+        #         "epochs": EPOCHS
+        #     }
+
+        #     # # Optionally, to test the model:
+        #     # trainer.test(combined_model, datamodule=data_module)
+
+        #     # Save the model using WandB run ID
+        #     # filename = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/{wandb.run.name}.pt"
+        #     filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}.pt"
+
+        #     # Save the model
+        #     torch.save(model_combined, filename)
 
         # Finish the current W&B run
         wandb.finish()
 
-    #After all trials, #print the best set of hyperparameters
-    print("Best Validation Loss:", best_overall_avg_loss_val)
-    print("Best Hyperparameters:", best_params)
+    # #After all trials, ##print the best set of hyperparameters
+    # #print("Best Validation Loss:", best_overall_avg_loss_val)
+    # #print("Best Hyperparameters:", best_params)
 
 
