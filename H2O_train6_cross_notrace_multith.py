@@ -54,8 +54,8 @@ def create_parser():
     parser.add_argument('--fourth_option', choices=['obj_trans', 'norm_obj_trans', 'enc_norm_obj_trans'], help='Specify the fourth option.')
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
-    parser.add_argument('--epochs', nargs='+', type=int, default=[120])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[32])
+    parser.add_argument('--epochs', nargs='+', type=int, default=[10])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[1])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -144,7 +144,7 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER
             },
-            #mode="offline"
+            mode="offline"
         )
 
         def load_intrinsics_and_distortion(camera_id, base_path):
@@ -1306,7 +1306,6 @@ if __name__ == "__main__":
 
                                     dataset = pickle.load(f)
                                     for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                                    #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
                                     #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                         end_idx = start_idx + self.frames_subclip
                                         if end_idx <= len(dataset[cam_id]):
@@ -1511,9 +1510,8 @@ if __name__ == "__main__":
                 optimizer.zero_grad()
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+                #print(cam_data)
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
-                obj_pose[:,-self.masked_frames:,:] = 0 
-                obj_trans[:,-self.masked_frames:,:] = 0
 
                 # Move each tensor to the specified device
                 smpl_pose = smpl_pose.to(device)
@@ -1525,8 +1523,10 @@ if __name__ == "__main__":
                 predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, obj_pose, obj_trans)
 
                 # Compute L2 loss (MSE) for both pose and translation
-                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
+                # smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
+                # smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
+                pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
+                trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
@@ -1555,23 +1555,15 @@ if __name__ == "__main__":
             def validation_step(self, cam_data, batch_idx):
                 # Get the data from cam_data as in training_step
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
-                obj_pose[:,-self.masked_frames:,:] = 0
-                obj_trans[:,-self.masked_frames:,:] = 0
-
-                # Move each tensor to the specified device
-                smpl_pose = smpl_pose.to(device)
-                smpl_joints = smpl_joints.to(device)
-                obj_pose = obj_pose.to(device)
-                obj_trans = obj_trans.to(device)
 
                 # Run forward pass as in training_step
-                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, obj_pose, obj_trans)
+                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
 
                 # Compute L2 loss (MSE) for both pose and translation
                 #smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
                 #smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
-                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
+                pose_loss = F.mse_loss(predicted_obj_pose, obj_pose)
+                trans_loss = F.mse_loss(predicted_obj_trans, obj_trans)
 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
@@ -1703,8 +1695,9 @@ if __name__ == "__main__":
             # Need to create pickles for non box
             #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
             processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
-            labels = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
-
+            labels = sorted(set([label.split('.')[0] for label in os.listdir(processed_path)]))
+            labels = labels[:3]
+            
             # date = "Date07"
             # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
             #print("Processing only ", date)
@@ -1805,8 +1798,8 @@ if __name__ == "__main__":
         # ]
 
         #print("\nTraining on:", labels)
-        frames_subclip = 32 # 115/12 = 9
-        masked_frames = 4
+        frames_subclip = 90 # 115/12 = 9
+        masked_frames = 45
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
         split_dict = load_split_from_path(path_to_file)
