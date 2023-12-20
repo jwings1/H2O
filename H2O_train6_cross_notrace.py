@@ -1512,24 +1512,30 @@ if __name__ == "__main__":
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
-                obj_pose[:,-self.masked_frames:,:] = 0 
-                obj_trans[:,-self.masked_frames:,:] = 0
+
+                masked_obj_pose = obj_pose.clone()
+                masked_obj_trans = obj_trans.clone()
+
+                masked_obj_pose[:,-self.masked_frames:,:] = 0
+                masked_obj_trans[:,-self.masked_frames:,:] = 0
 
                 # Move each tensor to the specified device
                 smpl_pose = smpl_pose.to(device)
                 smpl_joints = smpl_joints.to(device)
+                masked_obj_pose = masked_obj_pose.to(device)
+                masked_obj_trans = masked_obj_trans.to(device)
                 obj_pose = obj_pose.to(device)
                 obj_trans = obj_trans.to(device)
 
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, obj_pose, obj_trans)
+                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
 
                 # Compute L2 loss (MSE) for both pose and translation
                 pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
                 trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
 
                 # Combine the losses
-                total_loss = pose_loss + trans_loss
+                total_loss = 100 * pose_loss + trans_loss
 
                 # Logging the losses
                 self.log('train_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -1555,17 +1561,23 @@ if __name__ == "__main__":
             def validation_step(self, cam_data, batch_idx):
                 # Get the data from cam_data as in training_step
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
-                obj_pose[:,-self.masked_frames:,:] = 0
-                obj_trans[:,-self.masked_frames:,:] = 0
+
+                masked_obj_pose = obj_pose.clone()
+                masked_obj_trans = obj_trans.clone()
+
+                masked_obj_pose[:,-self.masked_frames:,:] = 0
+                masked_obj_trans[:,-self.masked_frames:,:] = 0
 
                 # Move each tensor to the specified device
                 smpl_pose = smpl_pose.to(device)
                 smpl_joints = smpl_joints.to(device)
+                masked_obj_pose = masked_obj_pose.to(device)
+                masked_obj_trans = masked_obj_trans.to(device)
                 obj_pose = obj_pose.to(device)
                 obj_trans = obj_trans.to(device)
 
                 # Run forward pass as in training_step
-                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, obj_pose, obj_trans)
+                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
 
                 # Compute L2 loss (MSE) for both pose and translation
                 #smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
@@ -1805,7 +1817,7 @@ if __name__ == "__main__":
         # ]
 
         #print("\nTraining on:", labels)
-        frames_subclip = 32 # 115/12 = 9
+        frames_subclip = 12 # 115/12 = 9
         masked_frames = 4
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"

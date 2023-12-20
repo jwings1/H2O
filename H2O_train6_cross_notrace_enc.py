@@ -55,7 +55,7 @@ def create_parser():
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
     parser.add_argument('--epochs', nargs='+', type=int, default=[120])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[1])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[32])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -144,7 +144,7 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER
             },
-            mode="offline"
+            #mode="offline"
         )
 
         def load_intrinsics_and_distortion(camera_id, base_path):
@@ -324,8 +324,8 @@ if __name__ == "__main__":
 
         def project_frames(data_frames, timestamps, N):
 
-            ##print(len(data_frames))
-            ##print(len(timestamps))
+            print(len(data_frames))
+            print(len(timestamps))
 
             # Initialize a dictionary to hold lists for each camera
             cam_lists = {
@@ -335,7 +335,7 @@ if __name__ == "__main__":
                 3: []
             }
 
-            x_percent = 2.5  # Replace with the percentage you want, e.g., 50 for 50%
+            x_percent = 100 # Replace with the percentage you want, e.g., 50 for 50%
 
             # Calculate the number of frames to select
             total_frames = len(data_frames)
@@ -366,120 +366,120 @@ if __name__ == "__main__":
                     distances = np.asarray([np.linalg.norm(transformed_obj_trans - joint) for joint in joints_numpy])       
                     frame['distances'] = distances
 
-                    selected_file_path_smpl_trace = os.path.join(base_path_trace,label+f".{cam_id}.color.mp4.npz")
+                    # selected_file_path_smpl_trace = os.path.join(base_path_trace,label+f".{cam_id}.color.mp4.npz")
 
-                    with np.load(selected_file_path_smpl_trace, allow_pickle=True) as data_smpl_trace:
-                        outputs = data_smpl_trace['outputs'].item()  # Access the 'outputs' dictionary
+                    # with np.load(selected_file_path_smpl_trace, allow_pickle=True) as data_smpl_trace:
+                    #     outputs = data_smpl_trace['outputs'].item()  # Access the 'outputs' dictionary
 
-                        pose_trace = outputs['smpl_thetas']
-                        joints_trace = outputs['j3d'][:,:24,:] 
-                        trans_trace = outputs['j3d'][:,0,:]
-                        betas_trace = outputs['smpl_betas']
-                        image_paths = data_smpl_trace['imgpaths']
+                    #     pose_trace = outputs['smpl_thetas']
+                    #     joints_trace = outputs['j3d'][:,:24,:] 
+                    #     trans_trace = outputs['j3d'][:,0,:]
+                    #     betas_trace = outputs['smpl_betas']
+                    #     image_paths = data_smpl_trace['imgpaths']
                     
-                        total_frames = int(pose_trace.shape[0])
+                    #     total_frames = int(pose_trace.shape[0])
 
 
-                        def find_idx_global(timestamp, fps=30):
-                            # Split the timestamp into seconds and milliseconds
-                            parts = timestamp[1:].split('.')
-                            seconds = int(parts[0])
-                            milliseconds = int(parts[1])
+                    #     def find_idx_global(timestamp, fps=30):
+                    #         # Split the timestamp into seconds and milliseconds
+                    #         parts = timestamp[1:].split('.')
+                    #         seconds = int(parts[0])
+                    #         milliseconds = int(parts[1])
 
-                            # Convert the timestamp into a frame number
-                            glb_idx = seconds * fps + int(round(milliseconds * fps / 1000))
-                            #glb_idx = frame_number
+                    #         # Convert the timestamp into a frame number
+                    #         glb_idx = seconds * fps + int(round(milliseconds * fps / 1000))
+                    #         #glb_idx = frame_number
 
-                            return glb_idx
+                    #         return glb_idx
 
-                        def find_idx_no_int(idx, N):
-                            return math.floor(idx / N)
+                    #     def find_idx_no_int(idx, N):
+                    #         return math.floor(idx / N)
 
-                        # The idx_
-                        idx_no_int = find_idx_no_int(idx, N)
-                        idx_global = find_idx_global(timestamps[idx_no_int])
+                    #     # The idx_
+                    #     idx_no_int = find_idx_no_int(idx, N)
+                    #     idx_global = find_idx_global(timestamps[idx_no_int])
 
-                        if idx_global + 1 <= total_frames:
-                            frame['img'] = image_paths[idx_global]
-                            frame['pose_trace'] = pose_trace[idx_global,:]
-                            frame['trans_trace'] = trans_trace[idx_global,:]
-                            frame['betas_trace'] = betas_trace[idx_global,:]
-                            frame['joints_trace'] = joints_trace[idx_global,:]
+                    #     if idx_global + 1 <= total_frames:
+                    #         frame['img'] = image_paths[idx_global]
+                    #         frame['pose_trace'] = pose_trace[idx_global,:]
+                    #         frame['trans_trace'] = trans_trace[idx_global,:]
+                    #         frame['betas_trace'] = betas_trace[idx_global,:]
+                    #         frame['joints_trace'] = joints_trace[idx_global,:]
 
-                            # Interpolation of pose_trace, trans_trace, joints_trace
-                            # Interpolation possible from idx = 1 onward, for the previous value, every N = 2
-                            # Indexes is even, 
-                            # Update
+                    #         # Interpolation of pose_trace, trans_trace, joints_trace
+                    #         # Interpolation possible from idx = 1 onward, for the previous value, every N = 2
+                    #         # Indexes is even, 
+                    #         # Update
 
-                            if idx % N == 0 and idx >= 2:  # Check if idx is divisible by N
-                                # Update the previous based on the second to last and last. Only linear interpolation as we deal with PC. At 1/2.
-                                cam_lists[cam_id][-1]['joints_trace'] = linear_interpolate(cam_lists[cam_id][-N]['joints_trace'], frame['joints_trace'], 1/N)
-                                cam_lists[cam_id][-1]['trans_trace'] = linear_interpolate(cam_lists[cam_id][-N]['trans_trace'], frame['trans_trace'], 1/N)
-                                cam_lists[cam_id][-1]['pose_trace'] = slerp_rotations(cam_lists[cam_id][-N]['pose_trace'], frame['pose_trace'], 1/N)
-                        else:
-                            # Delete all frames
-                            del frame
+                    #         if idx % N == 0 and idx >= 2:  # Check if idx is divisible by N
+                    #             # Update the previous based on the second to last and last. Only linear interpolation as we deal with PC. At 1/2.
+                    #             cam_lists[cam_id][-1]['joints_trace'] = linear_interpolate(cam_lists[cam_id][-N]['joints_trace'], frame['joints_trace'], 1/N)
+                    #             cam_lists[cam_id][-1]['trans_trace'] = linear_interpolate(cam_lists[cam_id][-N]['trans_trace'], frame['trans_trace'], 1/N)
+                    #             cam_lists[cam_id][-1]['pose_trace'] = slerp_rotations(cam_lists[cam_id][-N]['pose_trace'], frame['pose_trace'], 1/N)
+                    #     else:
+                    #         # Delete all frames
+                    #         del frame
                 
                     if 'frame' in locals():
                         cam_lists[cam_id].append(frame)
 
-            scene_boundaries = []
+            # scene_boundaries = []
 
-            # Debug: ##print sample from cam0_list after all operations
-            #if cam_lists[0]:
-                ##print(f"\nSample from cam0_list prior to all operations: {cam_lists[0][0]}")
+            # # Debug: ##print sample from cam0_list after all operations
+            # #if cam_lists[0]:
+            #     ##print(f"\nSample from cam0_list prior to all operations: {cam_lists[0][0]}")
 
-            # Gather components for normalization (here the normalization is over the whole test set)
-            for cam_id in range(4):
-                for idx in range(len(cam_lists[cam_id])):
-                    # Flatten the joints and add to scene_boundaries
-                    scene_boundaries.extend(np.array(cam_lists[cam_id][idx]['joints_trace']).flatten())
-                    # Add obj_trans components to scene_boundaries
-                    #scene_boundaries.extend(cam_lists[cam_id][idx]['obj_trans'].flatten())
+            # # Gather components for normalization (here the normalization is over the whole test set)
+            # for cam_id in range(4):
+            #     for idx in range(len(cam_lists[cam_id])):
+            #         # Flatten the joints and add to scene_boundaries
+            #         scene_boundaries.extend(np.array(cam_lists[cam_id][idx]['joints_trace']).flatten())
+            #         # Add obj_trans components to scene_boundaries
+            #         #scene_boundaries.extend(cam_lists[cam_id][idx]['obj_trans'].flatten())
 
-            # Convert to numpy array for the min and max operations
-            scene_boundaries_np = np.array(scene_boundaries)
+            # # Convert to numpy array for the min and max operations
+            # scene_boundaries_np = np.array(scene_boundaries)
 
-            max_value = scene_boundaries_np.max()
-            min_value = scene_boundaries_np.min()
+            # max_value = scene_boundaries_np.max()
+            # min_value = scene_boundaries_np.min()
 
-            ##print(f"\nMin value for normalization: {min_value}")
-            ##print(f"Max value for normalization: {max_value}")
+            # ##print(f"\nMin value for normalization: {min_value}")
+            # ##print(f"Max value for normalization: {max_value}")
 
-            for cam_id in range(4):
-                for idx in range(len(cam_lists[cam_id])):
-                    cam_lists[cam_id][idx]['norm_obj_trans'] = normalize(cam_lists[cam_id][idx]['obj_trans'], 0, 2*np.pi, min_value, max_value)
-                    cam_lists[cam_id][idx]['norm_joints'] = normalize(cam_lists[cam_id][idx]['joints'], 0, 2*np.pi, min_value, max_value)
-                    cam_lists[cam_id][idx]['norm_joints_trace'] = normalize(cam_lists[cam_id][idx]['joints_trace'], 0, 2*np.pi, min_value, max_value)
+            # for cam_id in range(4):
+            #     for idx in range(len(cam_lists[cam_id])):
+            #         cam_lists[cam_id][idx]['norm_obj_trans'] = normalize(cam_lists[cam_id][idx]['obj_trans'], 0, 2*np.pi, min_value, max_value)
+            #         cam_lists[cam_id][idx]['norm_joints'] = normalize(cam_lists[cam_id][idx]['joints'], 0, 2*np.pi, min_value, max_value)
+            #         cam_lists[cam_id][idx]['norm_joints_trace'] = normalize(cam_lists[cam_id][idx]['joints_trace'], 0, 2*np.pi, min_value, max_value)
 
-            #if cam_lists[0]:
-                ##print(f"\nSample from cam0_list after normalizing: {cam_lists[0][0]}")
+            # #if cam_lists[0]:
+            #     ##print(f"\nSample from cam0_list after normalizing: {cam_lists[0][0]}")
                 
-            # Unroll angle hierarchy
-            ##print("\nUnrolling angle hierarchy...") 
-            for cam_id in range(4):
-                for idx in range(len(cam_lists[cam_id])):
-                    cam_lists[cam_id][idx]['unrolled_pose'] = process_pose_params(cam_lists[cam_id][idx]['pose'])
-                    cam_lists[cam_id][idx]['unrolled_pose_trace'] = process_pose_params(cam_lists[cam_id][idx]['pose_trace'])
+            # # Unroll angle hierarchy
+            # ##print("\nUnrolling angle hierarchy...") 
+            # for cam_id in range(4):
+            #     for idx in range(len(cam_lists[cam_id])):
+            #         cam_lists[cam_id][idx]['unrolled_pose'] = process_pose_params(cam_lists[cam_id][idx]['pose'])
+            #         cam_lists[cam_id][idx]['unrolled_pose_trace'] = process_pose_params(cam_lists[cam_id][idx]['pose_trace'])
 
-            #if cam_lists[0]:
-                ##print(f"\nSample from cam0_list after unrolling: {cam_lists[0][0]}")
+            # #if cam_lists[0]:
+            #     ##print(f"\nSample from cam0_list after unrolling: {cam_lists[0][0]}")
 
-            # Positional encoding
-            ##print("\nApplying positional encoding...")
-            L = wandb.config.L
-            for cam_id in range(4):
-                for idx in range(len(cam_lists[cam_id])):
-                    cam_lists[cam_id][idx]['enc_norm_joints'] = gamma(cam_lists[cam_id][idx]['norm_joints'], L)
-                    cam_lists[cam_id][idx]['enc_unrolled_pose'] = gamma(cam_lists[cam_id][idx]['unrolled_pose'], L)
-                    cam_lists[cam_id][idx]['enc_obj_pose'] = gamma(cam_lists[cam_id][idx]['obj_pose'], L)
-                    cam_lists[cam_id][idx]['enc_norm_obj_trans'] = gamma(cam_lists[cam_id][idx]['norm_obj_trans'], L)
-                    cam_lists[cam_id][idx]['enc_norm_joints_trace'] = gamma(cam_lists[cam_id][idx]['norm_joints_trace'], L)
-                    cam_lists[cam_id][idx]['enc_unrolled_pose_trace'] = gamma(cam_lists[cam_id][idx]['unrolled_pose_trace'], L)
+            # # Positional encoding
+            # ##print("\nApplying positional encoding...")
+            # L = wandb.config.L
+            # for cam_id in range(4):
+            #     for idx in range(len(cam_lists[cam_id])):
+            #         cam_lists[cam_id][idx]['enc_norm_joints'] = gamma(cam_lists[cam_id][idx]['norm_joints'], L)
+            #         cam_lists[cam_id][idx]['enc_unrolled_pose'] = gamma(cam_lists[cam_id][idx]['unrolled_pose'], L)
+            #         cam_lists[cam_id][idx]['enc_obj_pose'] = gamma(cam_lists[cam_id][idx]['obj_pose'], L)
+            #         cam_lists[cam_id][idx]['enc_norm_obj_trans'] = gamma(cam_lists[cam_id][idx]['norm_obj_trans'], L)
+            #         cam_lists[cam_id][idx]['enc_norm_joints_trace'] = gamma(cam_lists[cam_id][idx]['norm_joints_trace'], L)
+            #         cam_lists[cam_id][idx]['enc_unrolled_pose_trace'] = gamma(cam_lists[cam_id][idx]['unrolled_pose_trace'], L)
 
-            # Debug: ##print sample from cam0_list after all operations
-            #if cam_lists[0]:
-                ##print(f"\nSample from cam0_list after all operations: {cam_lists[0][0]}")
+            # # Debug: ##print sample from cam0_list after all operations
+            # #if cam_lists[0]:
+            #     ##print(f"\nSample from cam0_list after all operations: {cam_lists[0][0]}")
 
             return [cam_lists[0], cam_lists[1], cam_lists[2], cam_lists[3]]
 
@@ -1281,8 +1281,8 @@ if __name__ == "__main__":
                 self.device = device
                 self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-                #base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame_numpy'
-                base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
+                base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+                # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
                 print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
                 for label in self.labels:
@@ -1306,6 +1306,7 @@ if __name__ == "__main__":
 
                                     dataset = pickle.load(f)
                                     for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                    #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
                                     #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                         end_idx = start_idx + self.frames_subclip
                                         if end_idx <= len(dataset[cam_id]):
@@ -1329,7 +1330,7 @@ if __name__ == "__main__":
                     subclip_data = dataset[cam_id][start_idx:end_idx]
                     scene = dataset[cam_id][0]['scene']
 
-                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32).to(self.device) for key in self.selected_keys]
+                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in self.selected_keys]
 
                 return items, scene
 
@@ -1358,20 +1359,20 @@ if __name__ == "__main__":
                 self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
                 # Uncomment to print identifiers in train and test sets
-                # print(f"Identifiers in train set: {set(train_identifiers)}")
-                # print(f"Identifiers in test set: {set(test_identifiers)}")
+                print(f"Identifiers in train set: {set(train_identifiers)}", flush=True)
+                print(f"Identifiers in test set: {set(test_identifiers)}", flush=True)
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True)
+                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=28)
 
             def val_dataloader(self):
                 val_dataset = Subset(self.dataset, self.val_indices)
-                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True)
+                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
 
             def test_dataloader(self):
                 test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True)
+                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
 
 
         def axis_angle_loss(pred, true):
@@ -1454,21 +1455,57 @@ if __name__ == "__main__":
                     activation = 'gelu',
                     )
 
-            def forward(self, cam_data):
-                smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
+            def forward(self, smpl_pose, smpl_joints, obj_pose, obj_trans):
+                #smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
+
+                def gamma(p, L):
+                    # Ensure p is a tensor
+                    p = torch.tensor(p, dtype=torch.float32)
+                    
+                    # Create a range of frequencies
+                    frequencies = torch.arange(0, L).float()
+                    encodings = []
+                    
+                    # Compute the sine and cosine encodings
+                    for frequency in frequencies:
+                        sin_encodings = torch.sin((2 ** (frequency)) * torch.pi * p)
+                        cos_encodings = torch.cos((2 ** (frequency)) * torch.pi * p)
+                        
+                        # Interleave sin and cos encodings
+                        encoding = torch.stack([sin_encodings, cos_encodings], dim=-1)
+                        encodings.append(encoding)
+                    
+                    # Concatenate all encodings
+                    return torch.cat(encodings, dim=-1)
 
                 smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
 
-                # print("SMPL Pose:", smpl_pose.shape)
-                # print("SMPL Joints:", smpl_joints.shape)
-                # print("Object Pose:", obj_pose.shape)
-                # print("Object Trans:", obj_trans.shape)
-                
+                # # Define batch normalization layers
+                # bn_smpl = nn.BatchNorm1d(2)
+                # bn_obj = nn.BatchNorm1d(2)
+
+                # # Apply batch normalization
+                # smpl_joints_normalized = bn_smpl(smpl_joints)
+                # #smpl_joints_normalized = smpl_joints_normalized.reshape(-1,self.frames_subclip,72)
+                # obj_trans_normalized = bn_obj(obj_trans)
+
+                # print("smpl_joints_normalized\n", smpl_joints_normalized)
+                # print("obj_trans_normalized\n", obj_trans_normalized)
+
+                # Apply positional encoding (gamma function)
+                L = 4 # Define the length for positional encoding
+                smpl_joints_encoded = gamma(smpl_joints, L)
+                obj_trans_encoded = gamma(obj_trans, L)
+
+                # Print shapes of the embedded tensors
+                print("Embedded SMPL Joints Shape:", smpl_joints_encoded.shape)
+                print("Embedded Object Trans Shape:", obj_trans_encoded.shape)
+
                 # Embedding inputs
                 embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
                 embedded_obj_pose = self.mlp_obj_pose(obj_pose)
-                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
-                embedded_obj_trans = self.mlp_obj_trans(obj_trans)
+                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints_encoded)
+                embedded_obj_trans = self.mlp_obj_trans(obj_trans_encoded)
 
                 # Print shapes of the embedded tensors
                 # print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
@@ -1508,18 +1545,30 @@ if __name__ == "__main__":
                 # Backward pass and optimization
                 optimizer = self.optimizers()
                 optimizer.zero_grad()
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-                #print(cam_data)
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
+                masked_obj_pose = obj_pose.clone()
+                masked_obj_trans = obj_trans.clone()
+
+                masked_obj_pose[:,-self.masked_frames:,:] = 0
+                masked_obj_trans[:,-self.masked_frames:,:] = 0
+
+                # Move each tensor to the specified device
+                smpl_pose = smpl_pose.to(device)
+                smpl_joints = smpl_joints.to(device)
+                masked_obj_pose = masked_obj_pose.to(device)
+                masked_obj_trans = masked_obj_trans.to(device)
+                obj_pose = obj_pose.to(device)
+                obj_trans = obj_trans.to(device)
+
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
+                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
 
                 # Compute L2 loss (MSE) for both pose and translation
-                # smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
-                # smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
-                pose_loss = F.mse_loss(predicted_obj_pose[:,:,-self.masked_frames:], obj_pose[:,:,-self.masked_frames:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,:,-self.masked_frames:], obj_trans[:,:,-self.masked_frames:])
+                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
+                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
 
                 # Combine the losses
                 total_loss = 100 * pose_loss + trans_loss
@@ -1549,14 +1598,28 @@ if __name__ == "__main__":
                 # Get the data from cam_data as in training_step
                 smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
+                masked_obj_pose = obj_pose.clone()
+                masked_obj_trans = obj_trans.clone()
+
+                masked_obj_pose[:,-self.masked_frames:,:] = 0
+                masked_obj_trans[:,-self.masked_frames:,:] = 0
+
+                # Move each tensor to the specified device
+                smpl_pose = smpl_pose.to(device)
+                smpl_joints = smpl_joints.to(device)
+                masked_obj_pose = masked_obj_pose.to(device)
+                masked_obj_trans = masked_obj_trans.to(device)
+                obj_pose = obj_pose.to(device)
+                obj_trans = obj_trans.to(device)
+
                 # Run forward pass as in training_step
-                predicted_obj_pose, predicted_obj_trans = self.forward(cam_data)
+                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
 
                 # Compute L2 loss (MSE) for both pose and translation
                 #smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
                 #smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
-                pose_loss = F.mse_loss(predicted_obj_pose[:,:,-self.masked_frames:], obj_pose[:,:,-self.masked_frames:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,:,-self.masked_frames:], obj_trans[:,:,-self.masked_frames:])
+                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
+                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
@@ -1677,45 +1740,52 @@ if __name__ == "__main__":
             with open(data_file_path, 'rb') as f:
                 dataset = pickle.load(f)
         else:
-            # # Create a dataset
+            # Create a dataset
 
-            # # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
-            # N = 2
+            # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
+            N = 1
 
             wandb.run.name = wandb.run.name + name
 
-            # base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+            base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+            # Need to create pickles for non box
             #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
-            # labels = sorted(set([label.split('.')[0] for label in os.listdir(base_path_trace) if '.color.mp4.npz' in label and 'boxmedium' not in label and 'Date03' not in label]))
-            # #print(labels)
-
+            processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+            labels = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
+            labels = labels[:2]
+            # date = "Date07"
+            # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
+            #print("Processing only ", date)
+            
+            print(labels, flush=True)
+            #breakpoint()
             # dataset = []
 
             # for label in labels:
-            #     #print("Processing label:", label)
+            #     print("Processing label:", label, flush=True)
             #     selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
             #     selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
 
-            #     #print("Object file path:", selected_file_path_obj)
-            #     #print("SMPL file path:", selected_file_path_smpl)
+            #     print("Object file path:", selected_file_path_obj)
+            #     print("SMPL file path:", selected_file_path_smpl)
 
             #     all_data_frames = []
 
             #     with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
-            #         #print("Loading object data")
+            #         print("Loading object data")
             #         obj_pose = data_obj['angles']
             #         obj_trans = data_obj['trans']
             #         timestamps = data_obj['frame_times']
-            #         #print("Object data loaded. Shape:", obj_pose.shape)
+            #         print("Object data loaded. Shape:", obj_pose.shape)
 
             #     with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
-            #         #print("Loading SMPL data")
+            #         print("Loading SMPL data")
             #         pose = data_smpl['poses'][:,:72]  # SMPL model
             #         trans = data_smpl['trans']
             #         betas = data_smpl['betas']
-            #         #print("SMPL data loaded. Shape:", pose.shape)
+            #         print("SMPL data loaded. Shape:", pose.shape)
 
-            #     for idx in range(trans.shape[0]):
+            #     for idx in range(min(trans.shape[0], obj_trans.shape[0])):
             #         #print(f"Processing frame {idx}")
             #         frame_data = {}
             #         obj_name = label.split('_')[2]
@@ -1732,20 +1802,30 @@ if __name__ == "__main__":
 
             #     # Assuming interpolate_frames and project_frames are defined elsewhere in your script
             #     all_data_frames_int = interpolate_frames(all_data_frames, N)
-            #     #print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int))
+            #     print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int))
             #     del all_data_frames
 
-            #     dataset_label = project_frames(all_data_frames_int, timestamps, N)
-            #     #print("Projection done. Length of projected frames:", len(dataset_label))
+            #     objects = project_frames(all_data_frames_int, timestamps, N)
+            #     print("Projection done. Length of projected frames:", len(objects))
             #     del all_data_frames_int
 
-            #     data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_int_1frame/{label}.pkl'
-            #     #print(f"Saving data to {data_file_path}")
-            #     with open(data_file_path, 'wb') as f:
-            #         pickle.dump(dataset_label, f)
-            #     #print(f"Saved data for {label} to {data_file_path}")
+            #     for j in range(len(objects)):
+            #         for k in range(len(objects[j])):
+            #             a = objects[j][k]
+            #             for key in a.keys():
+            #                 if hasattr(a[key], 'numpy'):
+            #                     objects[j][k][key] = a[key].numpy()
+            #                 else:
+            #                     objects[j][k][key] = a[key]
 
-            #     del dataset_label
+
+            #     data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy/{label}.pkl'
+            #     print(f"Saving data to {data_file_path}", flush=True)
+            #     with open(data_file_path, 'wb') as f:
+            #         pickle.dump(objects, f)
+            #     print(f"Saved data for {label} to {data_file_path}", flush=True)
+            #     #breakpoint()
+            #     del objects
             #     gc.collect()
 
         # Include now Date03. No processing.
@@ -1753,28 +1833,28 @@ if __name__ == "__main__":
         # Define your labels, camera IDs, and frame range
         cam_ids = [2]#[0, 1, 2, 3]
         #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
-        # labels = ["Date06_Sub07_boxmedium"]
+        #labels = ["Date06_Sub07_boxmedium"]
         # labels = [
         #     "Date01_Sub01_boxmedium_hand",
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
         #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
 
-        labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
-            "Date01_Sub01_boxmedium_hand",
-            "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
-            "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
-            "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
-            "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
-            "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
-            "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
-            "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
-            "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
-        ]
+        # labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
+        #     "Date01_Sub01_boxmedium_hand",
+        #     "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+        #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
+        #     "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
+        #     "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
+        #     "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
+        #     "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
+        #     "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
+        #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
+        # ]
 
         #print("\nTraining on:", labels)
-        frames_subclip = 90 # 115/12 = 9
-        masked_frames = 10
+        frames_subclip = 40 # 115/12 = 9
+        masked_frames = 1
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
         split_dict = load_split_from_path(path_to_file)

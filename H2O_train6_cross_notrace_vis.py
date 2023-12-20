@@ -109,7 +109,7 @@ wandb.init(
         "L": L,
         "epochs": EPOCHS
     },
-    mode='offline'
+    mode='disabled'
 )
 
 def load_config(camera_id, base_path, Date='Date01'):
@@ -644,26 +644,38 @@ class CombinedTrans(pl.LightningModule):
         #smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
         smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # print("SMPL Pose:", smpl_pose.shape)
-        # print("SMPL Joints:", smpl_joints.shape)
-        # print("Object Pose:", obj_pose.shape)
-        # print("Object Trans:", obj_trans.shape)
+        print("SMPL Pose:", smpl_pose.shape)
+        print("SMPL Joints:", smpl_joints.shape)
+        print("Object Pose:", obj_pose.shape)
+        print("Object Trans:", obj_trans.shape)
+
+        masked_obj_pose = obj_pose.clone()
+        masked_obj_trans = obj_trans.clone()
+
+        masked_obj_pose[:,-self.masked_frames:,:] = 0
+        masked_obj_trans[:,-self.masked_frames:,:] = 0
+
+        # Move each tensor to the specified device
+        smpl_pose = smpl_pose.to(device)
+        smpl_joints = smpl_joints.to(device)
+        masked_obj_pose = masked_obj_pose.to(device)
+        masked_obj_trans = masked_obj_trans.to(device)
+        obj_pose = obj_pose.to(device)
+        obj_trans = obj_trans.to(device)
         
         # Embedding inputs
         embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
-        embedded_obj_pose = self.mlp_obj_pose(obj_pose)
+        embedded_obj_pose = self.mlp_obj_pose(masked_obj_pose)
         embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
-        embedded_obj_trans = self.mlp_obj_trans(obj_trans)
+        embedded_obj_trans = self.mlp_obj_trans(masked_obj_trans)
 
         # Print shapes of the embedded tensors
-        # print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
-        # print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
-        # print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
-        # print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
-
-        # positions with True are not allowed to attend
-        # masking should happen when only in the frames
+        print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
+        print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
+        print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
+        print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
 
         #Initialize tgt_mask
         #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
@@ -697,7 +709,7 @@ def main():
     #dataset = []
 
     # Set scene
-    identifier = "Date01_Sub01_backpack_back"
+    identifier = "Date03_Sub03_tablesmall_lift"
     # Change .pt name when creating a new one
     data_file_path = os.path.join('/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy', identifier+".pkl")
 
@@ -729,8 +741,8 @@ def main():
     # for cam_id in range(4):
     #     for idx in range(20):
     #         #print(dataset[cam_id][idx].values())
-    frames_subclip = 90 # 115/12 = 9
-    masked_frames = 45
+    frames_subclip = 12 # 115/12 = 9
+    masked_frames = 4
     model = CombinedTrans(frames_subclip, masked_frames)
 
     # Specify device
@@ -738,7 +750,7 @@ def main():
 
     # Move the model to device
     model.to(device)
-    model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_only_120_epoch_mixed_bahave_mask45_obj_pose_obj_trans_epoch_39.pt"
+    model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint)
 
@@ -850,21 +862,23 @@ def main():
     prev_obj_transes = [None] * 4
     frame_idx = 0
     # Process interpolated frames
-    for idx in range(0,len(cam_data),masked_frames): 
+    #for idx in range(0,len(cam_data[2]),masked_frames): 
+    for idx in range(0,len(cam_data[2]) - frames_subclip + masked_frames -1, 1): 
         images = []
         for cam_id in [2]:
 
-            obj_pose = cam_data[cam_id][idx]['obj_pose']
-            obj_trans = cam_data[cam_id][idx]['obj_trans']
+            #len = 40 (inx 0 -39,), mask = 4 (mask of first indexed 36)
+            obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_pose']
+            obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_trans']
             identifier = cam_data[cam_id][idx]['scene']
-            betas = cam_data[cam_id][idx]['betas']
-            smpl_pose = cam_data[cam_id][idx]['pose']
-            smpl_trans = cam_data[cam_id][idx]['trans']
-            smpl_joints = cam_data[cam_id][idx]['joints']
+            betas = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['betas']
+            smpl_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['pose']
+            smpl_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['trans']
+            smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['joints']
             date = cam_data[cam_id][idx]['date']
             obj_template_path = cam_data[cam_id][idx]['obj_template_path']
 
-            # There is no image path for the moment...
+            # There is no image path for the momesmpl_posent...
             
             print(cam_id)
             print(cam_data[cam_id][idx]['obj_template_path'])
@@ -876,7 +890,7 @@ def main():
             cam_params = load_config(cam_id, base_path, date)
             intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path)
 
-            img = np.ones((900, 900, 4), dtype=np.uint8) * 255
+            img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
 
             # transformed_pose, transformed_trans = transform_smpl_to_camera_frame(smpl_pose, smpl_trans, cam_params)
             # transformed_pose, transformed_trans = smpl_pose, smpl_trans
@@ -895,27 +909,27 @@ def main():
             selected_joints, verts, projected_verts, smpl_faces = render_smpl(smpl_pose, smpl_trans, betas, intrinsics_cam, distortion_cam, img)
             projected_selected_joints = [project_to_image(joint, intrinsics_cam, distortion_cam) for joint in selected_joints]           
 
-            # Provide tuple (smpl_pose, smpl_joints, obj_pose, obj_trans, _, _ )
-            # The input is a masked window, the output is the prediciton for the masked one. the offest is then of the same size as window.
-            # (frames_subclip,72)
-            # (frames_subclip,3)
+            # Specify device
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+            scene = cam_data[cam_id][0]['scene']
             start_idx = idx
             end_idx = idx + frames_subclip
-            keys = ['smpl_pose', 'smpl_joints', 'obj_pose', 'obj_trans']
             subclip_data = cam_data[cam_id][start_idx:end_idx]
-            scene = dataset[cam_id][0]['scene']
+            keys = ['pose', 'joints', 'obj_pose', 'obj_trans']
+
             items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
-            y_hat_stage3_pos, y_hat_stage3_trans = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
+            candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
             
-            candidate_obj_pose = y_hat_stage3_pos.cpu().detach().numpy().flatten()
-            candidate_obj_trans = y_hat_stage3_trans.cpu().detach().numpy().flatten()
-
             # Store the candidate pose and translation for use in the next iteration
-            prev_obj_poses[cam_id] = candidate_obj_pose
-            prev_obj_transes[cam_id] = candidate_obj_trans
-
-            transformed_object = plot_obj_in_camera_frame(candidate_obj_pose, candidate_obj_trans, obj_template_path)
+            # prev_obj_poses = candidate_obj_pose_tensor
+            # prev_obj_transes = candidate_obj_trans_tensor
+            
+            candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
+            candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
+            
+            # Plot from the first predicted frame onward
+            transformed_object = plot_obj_in_camera_frame(candidate_obj_pose[0,-masked_frames,:], candidate_obj_trans[0,-masked_frames,:], obj_template_path)
             vertices_np = np.asarray(transformed_object.vertices)  # Convert directly to numpy array
             obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in vertices_np]
             faces_np = np.asarray(transformed_object.triangles)  # Convert the triangles to numpy array
@@ -928,37 +942,51 @@ def main():
             
             img = project_mesh_on_image(img, projected_verts, smpl_faces, obj_projected_verts, faces_np, \
             candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints)
-
-            # def log_mse_to_wandb(true_vector, predicted_vector):
-            #     # Compute the squared differences
-            #     squared_diffs = (true_vector - predicted_vector) ** 2
-                
-            #     # Calculate the mean squared error
-            #     mse = np.mean(squared_diffs)
-                
-            #     # Log the MSE to wandb
-            #     wandb.log({"MSE": mse})
-
-            # log_mse_to_wandb(candidate_obj_trans, )
             
-            #print("Meshes projected on image.")
+            
+            candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
+            candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
 
-            #print("End of render_smpl function.")
-            #print(f"Rendered SMPL on image for camera {cam_id}.")
+            # Calculate MSE for obj_pose
+            error_pose = candidate_obj_pose - obj_pose
+            obj_pose_loss = np.mean(np.square(error_pose))
+
+            # Calculate MSE for obj_trans
+            error_trans = candidate_obj_trans - obj_trans
+            obj_trans_loss = np.mean(np.square(error_trans))
             
             # Add cam_id onto the image
             font = cv2.FONT_HERSHEY_SIMPLEX 
-            bottomLeftCornerOfText = (10, 100)
             fontScale = 1
-            fontColor = (255,255,255) # White color
+            fontColor = (255, 255, 255) # White color
             lineType = 4
 
+            # Text positions
+            bottomLeftCornerOfText = (10, 50)  # Position for Camera ID
+            bottomRightCornerOfText1 = (10, 100)  # Position for MSE pose
+            bottomRightCornerOfText2 = (10, 150)  # Position for MSE trans
+
+            # Put text on the image
             cv2.putText(img, f'Camera ID: {cam_id}', 
-                bottomLeftCornerOfText, 
-                font, 
-                fontScale,
-                fontColor,
-                lineType)
+                        bottomLeftCornerOfText, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
+
+            cv2.putText(img, f'MSE pose: {obj_pose_loss:.4f}', 
+                        bottomRightCornerOfText1, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
+
+            cv2.putText(img, f'MSE trans: {obj_trans_loss:.4f}', 
+                        bottomRightCornerOfText2, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
 
             #print(f"Rendered SMPL on image for camera {cam_id}.")
             images.append(img)
@@ -1036,7 +1064,7 @@ def main():
         new_height = new_height if new_height % 2 == 0 else new_height + 1
 
         resized_image = cv2.resize(all_images, (new_width, new_height))
-        cv2.putText(resized_image, identifier, (10, new_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.putText(resized_image, identifier, (10, new_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
         frame_path = os.path.join(temp_dir, "frame_{:04d}.png".format(frame_idx))
         success = cv2.imwrite(frame_path, resized_image)
         print(f"Saving frame at {frame_path}. Success: {success}")
@@ -1047,7 +1075,7 @@ def main():
 
     ########################################################
 
-    for cam_id in range(4):
+    for cam_id in [2]:
 
         auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), max_th) * 100
         auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), max_th) * 100
