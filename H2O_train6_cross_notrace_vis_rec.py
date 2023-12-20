@@ -123,24 +123,24 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints, \
     fraction=1.0, transparency=0.4, scale_factor=1.0):
     
-    print("Start of project_mesh_on_image function.")
-    print(f"Number of projected_verts_smpl: {len(projected_verts)}")
+    #print("Start of project_mesh_on_image function.")
+    #print(f"Number of projected_verts_smpl: {len(projected_verts)}")
     
     # Convert faces to a list if it's a numpy array
     if isinstance(faces, np.ndarray):
         faces = faces.tolist()
     
-    print(f"Original number of faces: {len(faces)}")
+    #print(f"Original number of faces: {len(faces)}")
     
     # Randomly sample a fraction of the faces
     sampled_faces = random.sample(faces, int(len(faces) * fraction))
-    print(f"Number of sampled faces: {len(sampled_faces)}")
+    #print(f"Number of sampled faces: {len(sampled_faces)}")
     
     # Randomly sample a fraction of the obj faces
     obj_sampled_faces = obj_faces
     candidate_obj_sampled_faces = candidate_faces_np
     #random.sample(obj_faces, int(len(obj_faces) * fraction))
-    #print(f"Number of obj sampled faces: {len(obj_sampled_faces)}")
+    ##print(f"Number of obj sampled faces: {len(obj_sampled_faces)}")
 
     # Resize the image based on the scale_factor
     img_height, img_width = img.shape[:2]
@@ -276,48 +276,48 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     #     cv2.circle(img, (start_x, start_y + i*30), radius=7, color=color, thickness=-1)
     #     cv2.putText(img, name, (start_x + 20, start_y + i*30 + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # print("End of project_mesh_on_image function.")
+    # #print("End of project_mesh_on_image function.")
     return img
 
 def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, distortion_cam, img):
     
-    print("Start of render_smpl function.")
+    #print("Start of render_smpl function.")
     
     batch_size = 1
-    print(f"batch_size: {batch_size}")
+    #print(f"batch_size: {batch_size}")
 
     # Create the SMPL layer
     smpl_layer = SMPL_Layer(
         center_idx=0,
         gender='male',
         model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
-    print("SMPL_Layer created.")
+    #print("SMPL_Layer created.")
 
     # Process pose parameters
     pose_params_start = torch.tensor(transformed_pose[:3], dtype=torch.float32)
     pose_params_rest = torch.tensor(transformed_pose[3:72], dtype=torch.float32)
     pose_params_rest[-6:] = 0
     pose_params = torch.cat([pose_params_start, pose_params_rest]).unsqueeze(0).repeat(batch_size, 1)
-    print(f"pose_params shape: {pose_params.shape}")
+    #print(f"pose_params shape: {pose_params.shape}")
 
     shape_params = torch.tensor(betas, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    print(f"shape_params shape: {shape_params.shape}")
+    #print(f"shape_params shape: {shape_params.shape}")
 
     obj_trans = torch.tensor(transformed_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    print(f"obj_trans shape: {obj_trans.shape}")
+    #print(f"obj_trans shape: {obj_trans.shape}")
 
     # # Process obj parameters
     # obj_obj_trans = torch.tensor(transformed_obj_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    # print(f"Obj_trans shape: {obj_obj_trans.shape}")
+    # #print(f"Obj_trans shape: {obj_obj_trans.shape}")
 
     # obj_pose_params = torch.tensor(transformed_obj_pose, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    # print(f"Obj_pose shape: {obj_trans.shape}")
+    # #print(f"Obj_pose shape: {obj_trans.shape}")
 
     # GPU mode
     cuda = torch.cuda.is_available()
-    print(f"CUDA available: {cuda}")
+    #print(f"CUDA available: {cuda}")
     device = torch.device("cuda:0" if cuda else "cpu")
-    print(f"Device: {device}")
+    #print(f"Device: {device}")
     
     pose_params = pose_params.to(device)
     shape_params = shape_params.to(device)
@@ -325,22 +325,22 @@ def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, dist
     smpl_layer = smpl_layer.to(device)
     # obj_obj_trans = obj_obj_trans.to(device)
     # obj_pose_params = obj_pose_params.to(device)
-    print("All tensors and models moved to device.")
+    #print("All tensors and models moved to device.")
 
     # Forward from the SMPL layer
     verts, J = smpl_layer(pose_params, th_betas=shape_params, th_trans=obj_trans)
 
 
-    print(J.shape)
-    print(verts.shape)
+    #print(J.shape)
+    #print(verts.shape)
 
     J = J.squeeze(0)
     #verts = verts.squeeze(0)
 
 
 
-    print(J.shape)
-    #print(verts.shape)
+    #print(J.shape)
+    ##print(verts.shape)
 
 
     # Extracting joints from SMPL skeleton
@@ -413,11 +413,11 @@ def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, dist
     # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
     #                 left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]
     
-    #print(f"verts shape: {verts.shape}, Jtr shape: {Jtr.shape}")
+    ##print(f"verts shape: {verts.shape}, Jtr shape: {Jtr.shape}")
     verts = verts.cpu()  # Move verts to CPU for subsequent operations
-    print("verts moved to CPU.")
+    #print("verts moved to CPU.")
     projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in verts[0].detach().numpy()]
-    print(f"Number of projected_verts: {len(projected_verts)}")
+    #print(f"Number of projected_verts: {len(projected_verts)}")
 
 
     verts = verts.squeeze(0).cpu().numpy()
@@ -461,8 +461,8 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
     object_vertices = np.asarray(object_mesh.vertices)
     
-    # Debug: print object vertices before any transformation
-    print("Object vertices before any transformation: ", object_vertices)
+    # Debug: #print object vertices before any transformation
+    #print("Object vertices before any transformation: ", object_vertices)
 
     # Compute the centroid of the object
     centroid = np.mean(object_vertices, axis=0)
@@ -479,7 +479,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     T_mesh[:3, 3] = obj_trans
     
     # Debug: Verify T_mesh
-    # print("T_mesh: ", T_mesh)
+    # #print("T_mesh: ", T_mesh)
 
     # # Extract rotation and translation of camera from world coordinates
     # R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
@@ -491,7 +491,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     # T_cam[:3, 3] = t_w_c
     
     # # Debug: Verify T_cam
-    # print("T_cam: ", T_cam)
+    # #print("T_cam: ", T_cam)
 
     # Ensure types are float64
     #T_cam = T_cam.astype(np.float64)
@@ -502,7 +502,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     T_mesh_in_cam = T_mesh
 
     # Debug: Verify T_mesh_in_cam
-    print("T_mesh_in_cam: ", T_mesh_in_cam)
+    #print("T_mesh_in_cam: ", T_mesh_in_cam)
     
     # Transform the object's vertices using T_mesh_in_cam
     transformed_vertices = object_vertices
@@ -510,7 +510,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     transformed_vertices = transformed_vertices_homogeneous[:3, :].T
 
     # Debug: Check transformed object
-    # print("Transformed vertices: ", transformed_vertices)
+    # #print("Transformed vertices: ", transformed_vertices)
 
     # Update object mesh vertices
     object_mesh.vertices = o3d.utility.Vector3dVector(transformed_vertices)
@@ -646,10 +646,10 @@ class CombinedTrans(pl.LightningModule):
         smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        print("SMPL Pose:", smpl_pose.shape)
-        print("SMPL Joints:", smpl_joints.shape)
-        print("Object Pose:", obj_pose.shape)
-        print("Object Trans:", obj_trans.shape)
+        #print("SMPL Pose:", smpl_pose.shape)
+        #print("SMPL Joints:", smpl_joints.shape)
+        #print("Object Pose:", obj_pose.shape)
+        #print("Object Trans:", obj_trans.shape)
 
         masked_obj_pose = obj_pose.clone()
         masked_obj_trans = obj_trans.clone()
@@ -671,11 +671,11 @@ class CombinedTrans(pl.LightningModule):
         embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
         embedded_obj_trans = self.mlp_obj_trans(masked_obj_trans)
 
-        # Print shapes of the embedded tensors
-        print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
-        print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
-        print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
-        print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
+        # #Print shapes of the embedded tensors
+        #print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
+        #print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
+        #print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
+        #print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
 
         #Initialize tgt_mask
         #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
@@ -696,9 +696,9 @@ class CombinedTrans(pl.LightningModule):
         predicted_obj_pose = self.mlp_output_pose(predicted_obj_pose_emb.permute(1,0,2))
         predicted_obj_trans = self.mlp_output_trans(predicted_obj_trans_emb.permute(1,0,2))
 
-        # Print dimensions of the tensors
-        #print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
-        #print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
+        # #Print dimensions of the tensors
+        ##print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
+        ##print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
 
         return predicted_obj_pose, predicted_obj_trans
 
@@ -716,7 +716,7 @@ def main():
     temp_dir = "/scratch_net/biwidl307/lgermano/crossvit/visualizations/temp_frames"
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
-        print(f"Created directory: {temp_dir}")
+        #print(f"Created directory: {temp_dir}")
     else:
         # Delete all files and subdirectories in the directory
         for filename in os.listdir(temp_dir):
@@ -729,7 +729,7 @@ def main():
             except Exception as e:
                 return f"Failed to delete {file_path}. Reason: {e}"
         
-        print(f"Directory {temp_dir} already exists. Its contents have been deleted.")
+        #print(f"Directory {temp_dir} already exists. Its contents have been deleted.")
 
     # Check if the data has already been saved
     if os.path.exists(data_file_path):
@@ -737,10 +737,10 @@ def main():
         with open(data_file_path, 'rb') as f:
             cam_data = pickle.load(f)
     
-    #print(cam_data[0][0].keys())
+    ##print(cam_data[0][0].keys())
     # for cam_id in range(4):
     #     for idx in range(20):
-    #         print(dataset[cam_id][idx].values())
+    #         #print(dataset[cam_id][idx].values())
     frames_subclip = 12 # 115/12 = 9
     masked_frames = 4
     model = CombinedTrans(frames_subclip, masked_frames)
@@ -823,7 +823,7 @@ def main():
             return 0
         rec = np.sort(np.array(rec))
         n = len(rec)
-        print(n)
+        #print(n)
         prec = np.arange(1, n + 1) / float(n)
         rec = rec.reshape(-1)
         prec = prec.reshape(-1)
@@ -899,23 +899,21 @@ def main():
                 items[1] = torch.tensor(np.vstack([subclip_data[i]['joints'] for i in range(len(subclip_data))]), dtype=torch.float32)
                 
                 items[2] = torch.roll(items[2], -1, 0)
-                #items[2][-1] = torch.zeros_like(items[2][-1])
                 items[2][-masked_frames-1] = prev_obj_pose
                 
                 items[3] = torch.roll(items[3], -1, 0)
-                #items[3][-1] = torch.zeros_like(items[3][-1])
                 items[3][-masked_frames-1] = prev_obj_trans
 
-                # Printing all variables for debugging
-                # print("items[0]:", items[0])
-                # print("items[1]:", items[1])
-                print("items[2]:", items[2])
-                print("items[3]:", items[3])
-                print("prev_obj_pose:", prev_obj_pose)
-                print("prev_obj_trans:", prev_obj_trans)
-                print("masked_frames:", masked_frames)
-                print("Length of subclip_data:", len(subclip_data))
-                print("Sample of subclip_data:", subclip_data[0])  # Prints first element as a sample
+                # #Printing all variables for debugging
+                # #print("items[0]:", items[0])
+                # #print("items[1]:", items[1])
+                #print("items[2]:", items[2])
+                #print("items[3]:", items[3])
+                #print("prev_obj_pose:", prev_obj_pose)
+                #print("prev_obj_trans:", prev_obj_trans)
+                #print("masked_frames:", masked_frames)
+                #print("Length of subclip_data:", len(subclip_data))
+                #print("Sample of subclip_data:", subclip_data[0])  # #Prints first element as a sample
 
             else:
 
@@ -1012,9 +1010,9 @@ def main():
             GT_obj_np = np.asarray(GT_obj_pcd.points)
             candidate_obj_np = np.asarray(candidate_obj_pcd.points)
 
-            # #print the lengths of the numpy arrays
-            #print("Length of GT_obj_np:", len(GT_obj_np))
-            #print("Length of candidate_obj_np:", len(candidate_obj_np))
+            # ##print the lengths of the numpy arrays
+            ##print("Length of GT_obj_np:", len(GT_obj_np))
+            ##print("Length of candidate_obj_np:", len(candidate_obj_np))
 
             # Calculate 5% of the total number of points
             num_points = GT_obj_np.shape[0]
@@ -1033,10 +1031,10 @@ def main():
             add_s = adi_err(candidate_vertices, GT_vertices)
             cd = compute_cd(GT_vertices, candidate_vertices)
 
-            #print the computed values
-            print("ADD:", add)
-            print("ADD-S:", add_s)
-            print("CD:", cd)
+            ##print the computed values
+            #print("ADD:", add)
+            #print("ADD-S:", add_s)
+            #print("CD:", cd)
 
             # Store ADD and ADD-S values
             # scene_cam_ADD_values.append(add)
@@ -1048,7 +1046,7 @@ def main():
 
             ############################################################################
         
-        print("\nCombining images...")
+        #print("\nCombining images...")
         num_images = len(images)
 
         # Handle cases for different number of images
@@ -1074,11 +1072,11 @@ def main():
         cv2.putText(resized_image, identifier, (10, new_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
         frame_path = os.path.join(temp_dir, "frame_{:04d}.png".format(frame_idx))
         success = cv2.imwrite(frame_path, resized_image)
-        print(f"Saving frame at {frame_path}. Success: {success}")
+        #print(f"Saving frame at {frame_path}. Success: {success}")
 
         frame_idx += 1
 
-    print("\nCreating video...")
+    #print("\nCreating video...")
 
     ########################################################
 
@@ -1108,12 +1106,12 @@ def main():
         "-pix_fmt", "yuv420p",
         video_path
     ])
-    print(f"Video saved at {video_path}.")
+    #print(f"Video saved at {video_path}.")
     
-    print("\nCleaning up temporary files...")
+    #print("\nCleaning up temporary files...")
     shutil.rmtree(temp_dir)
     cv2.destroyAllWindows()
-    print("Cleanup complete.")
+    #print("Cleanup complete.")
 
 if __name__ == "__main__":
     main()

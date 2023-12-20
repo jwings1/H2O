@@ -862,9 +862,10 @@ def main():
         ##########################################################################
 
         # Initialize variables to store the previous object pose and translation for each camera
-        prev_obj_poses = [None] * 4  # 4 cameras
-        prev_obj_transes = [None] * 4
         frame_idx = 0
+        prev_obj_pose = None
+        prev_obj_trans = None
+        items = [None] * 4
         # Process interpolated frames
         #for idx in range(0,len(cam_data[2]),masked_frames): 
         for idx in range(0,len(cam_data[2]) - frames_subclip +1, 1): 
@@ -920,14 +921,28 @@ def main():
                 start_idx = idx
                 end_idx = idx + frames_subclip
                 subclip_data = cam_data[cam_id][start_idx:end_idx]
-                keys = ['pose', 'joints', 'obj_pose', 'obj_trans']
 
-                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
+                if prev_obj_pose is not None and prev_obj_trans is not None:
+
+                    items[0] = torch.tensor(np.vstack([subclip_data[i]['pose'] for i in range(len(subclip_data))]), dtype=torch.float32)
+                    items[1] = torch.tensor(np.vstack([subclip_data[i]['joints'] for i in range(len(subclip_data))]), dtype=torch.float32)
+                    
+                    items[2] = torch.roll(items[2], -1, 0)
+                    items[2][-masked_frames-1] = prev_obj_pose
+                    
+                    items[3] = torch.roll(items[3], -1, 0)
+                    items[3][-masked_frames-1] = prev_obj_trans
+
+                else:
+
+                    keys = ['pose', 'joints','obj_pose', 'obj_trans']
+                    items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
+
                 candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
                 
                 # Store the candidate pose and translation for use in the next iteration
-                # prev_obj_poses = candidate_obj_pose_tensor
-                # prev_obj_transes = candidate_obj_trans_tensor
+                prev_obj_pose = candidate_obj_pose_tensor[0,-masked_frames,:]
+                prev_obj_trans = candidate_obj_trans_tensor[0,-masked_frames,:]
                 
                 candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
                 candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
@@ -1006,24 +1021,24 @@ def main():
 
 
                 # Convert Open3D point clouds to numpy arrays
-                GT_vertices = np.asarray(GT_obj_pcd.points)
-                candidate_vertices = np.asarray(candidate_obj_pcd.points)
+                GT_obj_np = np.asarray(GT_obj_pcd.points)
+                candidate_obj_np = np.asarray(candidate_obj_pcd.points)
 
                 # ###print the lengths of the numpy arrays
                 ###print("Length of GT_obj_np:", len(GT_obj_np))
                 ###print("Length of candidate_obj_np:", len(candidate_obj_np))
 
-                # # Calculate 5% of the total number of points
-                # num_points = GT_obj_np.shape[0]
-                # num_sampled_points = 10 #int(num_points * 0.0005)
+                # Calculate 5% of the total number of points
+                num_points = GT_obj_np.shape[0]
+                num_sampled_points = 100 #int(num_points * 0.0005)
 
-                # # Generate random indices
-                # np.random.seed(0) # for reproducibility
-                # random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
+                # Generate random indices
+                np.random.seed(0) # for reproducibility
+                random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
 
-                # Select the points using these indices
-                # GT_vertices = GT_obj_np#[random_indices]
-                # candidate_vertices = candidate_obj_np#[random_indices]
+                Select the points using these indices
+                GT_vertices = GT_obj_np#[random_indices]
+                candidate_vertices = candidate_obj_np#[random_indices]
 
                 # Now you can compute ADD and ADD-S and CD
                 add = add_err(candidate_vertices, GT_vertices)
@@ -1094,6 +1109,8 @@ def main():
         timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
         base_video_path = os.path.join("/scratch_net/biwidl307/lgermano/crossvit/visualizations/", identifier)
+        #base_video_path = os.path.join("/srv/beegfs02/scratch/3dhumanobjint/data/visualizations/", identifier)
+        
         video_path = f"{base_video_path}_{timestamp}.mp4"
 
         subprocess.call([
@@ -1105,7 +1122,7 @@ def main():
             "-pix_fmt", "yuv420p",
             video_path
         ])
-        #print(f"Video saved at {video_path}.")
+        print(f"Video saved at {video_path}.")
         
         #print("\nCleaning up temporary files...")
         shutil.rmtree(temp_dir)
