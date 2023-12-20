@@ -804,6 +804,7 @@ if __name__ == "__main__":
             add = add_err(candidate_vertices, GT_vertices)
             add_s = adi_err(candidate_vertices, GT_vertices)
             cd = compute_cd(candidate_vertices, GT_vertices)
+            #cd, _  = chamfer_distance(candidate_vertices, GT_vertices)
 
             return add, add_s, cd
 
@@ -1364,15 +1365,15 @@ if __name__ == "__main__":
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=28)
+                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=2)
 
             def val_dataloader(self):
                 val_dataset = Subset(self.dataset, self.val_indices)
-                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
+                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
 
             def test_dataloader(self):
                 test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
+                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
 
 
         def axis_angle_loss(pred, true):
@@ -1827,13 +1828,6 @@ if __name__ == "__main__":
         # Specify device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # #Specify the path to the checkpoint
-        # model_path = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_leafy-smoke-2619_epoch_16.pt"
-        # #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
-
-        # #Load the state dict from the checkpoint into the model
-        # checkpoint = torch.load(model_path, map_location=device)
-        # model_combined.load_state_dict(checkpoint)
         
         # Move the model to device
 
@@ -1856,7 +1850,14 @@ if __name__ == "__main__":
         print("Ready to train with data_module", flush=True)
         #breakpoint()
         model_combined = CombinedTrans(frames_subclip, masked_frames)
-        model_combined.to(device)
+        #Specify the path to the checkpoint
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
+
+        # #Load the state dict from the checkpoint into the model
+        # checkpoint = torch.load(model_path, map_location=device)
+        # model_combined.load_state_dict(checkpoint)
+        #model_combined.to(device)
         wandb_logger = WandbLogger()
         wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients
         # Initialize Trainer

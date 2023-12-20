@@ -1364,15 +1364,15 @@ if __name__ == "__main__":
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=28)
+                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=2)
 
             def val_dataloader(self):
                 val_dataset = Subset(self.dataset, self.val_indices)
-                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
+                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
 
             def test_dataloader(self):
                 test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=28)
+                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
 
         class MLP(nn.Module):
             def __init__(self, input_dim, output_dim):
@@ -1499,78 +1499,78 @@ if __name__ == "__main__":
                 # Assuming predictions contain the masked_obj_pose and masked_obj_trans
                 predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
                 
-                # # Custome loss
-                # def axis_angle_loss(pred, true):
-                #     # Assuming pred and true are [batch_size, 3] tensors where
-                #     # the last dimension contains the [x, y, z] coordinates of the axis-angle vector
+                # Custome loss
+                def axis_angle_loss(pred, true):
+                    # Assuming pred and true are [batch_size, 3] tensors where
+                    # the last dimension contains the [x, y, z] coordinates of the axis-angle vector
                     
-                #     # Normalize axis vectors
-                #     pred_axis = F.normalize(pred, dim=-1)
-                #     true_axis = F.normalize(true, dim=-1)
+                    # Normalize axis vectors
+                    pred_axis = F.normalize(pred, dim=-1)
+                    true_axis = F.normalize(true, dim=-1)
                     
-                #     # Calculate the cosine similarity between axes
-                #     cos_sim = F.cosine_similarity(pred_axis, true_axis, dim=-1)
+                    # Calculate the cosine similarity between axes
+                    cos_sim = F.cosine_similarity(pred_axis, true_axis, dim=-1)
                     
-                #     # Calculate angle magnitudes
-                #     pred_angle = torch.norm(pred, dim=-1)
-                #     true_angle = torch.norm(true, dim=-1)
+                    # Calculate angle magnitudes
+                    pred_angle = torch.norm(pred, dim=-1)
+                    true_angle = torch.norm(true, dim=-1)
                     
-                #     # Calculate circular distance for angles
-                #     angle_diff_options = torch.stack([
-                #         torch.abs(pred_angle - true_angle),
-                #         torch.abs(pred_angle - true_angle + 2 * np.pi),
-                #         torch.abs(pred_angle - true_angle - 2 * np.pi)
-                #     ], dim=-1)
+                    # Calculate circular distance for angles
+                    angle_diff_options = torch.stack([
+                        torch.abs(pred_angle - true_angle),
+                        torch.abs(pred_angle - true_angle + 2 * np.pi),
+                        torch.abs(pred_angle - true_angle - 2 * np.pi)
+                    ], dim=-1)
                     
-                #     angle_diff, _ = torch.min(angle_diff_options, dim=-1)
+                    angle_diff, _ = torch.min(angle_diff_options, dim=-1)
 
-                #     # Combine the two losses
-                #     # You can weight these terms as needed
-                #     loss = 1 - cos_sim + angle_diff
+                    # Combine the two losses
+                    # You can weight these terms as needed
+                    loss = 1 - cos_sim + angle_diff
 
-                #     return loss
+                    return torch.mean(loss)
 
-                def axis_angle_to_quaternion(axis_angle):
-                    """Convert axis-angle representation to quaternion."""
-                    angle = torch.norm(axis_angle, dim=-1, keepdim=True)
-                    axis = axis_angle / (angle + 1e-6)  # Avoid division by zero
+                # def axis_angle_to_quaternion(axis_angle):
+                #     """Convert axis-angle representation to quaternion."""
+                #     angle = torch.norm(axis_angle, dim=-1, keepdim=True)
+                #     axis = axis_angle / (angle + 1e-6)  # Avoid division by zero
 
-                    w = torch.cos(angle / 2)
-                    xyz = axis * torch.sin(angle / 2)
+                #     w = torch.cos(angle / 2)
+                #     xyz = axis * torch.sin(angle / 2)
 
-                    quaternion = torch.cat([w, xyz], dim=-1)
-                    return quaternion
+                #     quaternion = torch.cat([w, xyz], dim=-1)
+                #     return quaternion
 
-                def quaternion_distance(q1, q2):
-                    """Compute the distance between two quaternions."""
-                    dot_product = torch.sum(q1 * q2, dim=-1)
-                    dot_product = torch.clamp(dot_product, min=-1.0, max=1.0)  # Numerical stability
-                    distance = 2 * torch.acos(torch.abs(dot_product))  # Absolute value for handling antipodal quaternions
-                    return distance
+                # def quaternion_distance(q1, q2):
+                #     """Compute the distance between two quaternions."""
+                #     dot_product = torch.sum(q1 * q2, dim=-1)
+                #     dot_product = torch.clamp(dot_product, min=-1.0, max=1.0)  # Numerical stability
+                #     distance = 2 * torch.acos(torch.abs(dot_product))  # Absolute value for handling antipodal quaternions
+                #     return distance
 
-                def correct_for_double_cover(predicted_quat, target_quat):
-                    """Correct for the double cover issue in quaternions."""
-                    dot_product = torch.sum(predicted_quat * target_quat, dim=-1, keepdim=True)
-                    corrected_quat = torch.where(dot_product < 0, -predicted_quat, predicted_quat)
-                    return corrected_quat
+                # def correct_for_double_cover(predicted_quat, target_quat):
+                #     """Correct for the double cover issue in quaternions."""
+                #     dot_product = torch.sum(predicted_quat * target_quat, dim=-1, keepdim=True)
+                #     corrected_quat = torch.where(dot_product < 0, -predicted_quat, predicted_quat)
+                #     return corrected_quat
 
-                # Convert axis-angle to quaternion
-                predicted_quaternions = axis_angle_to_quaternion(predicted_obj_pose[:,-self.masked_frames:,:])
-                target_quaternions = axis_angle_to_quaternion(obj_pose[:,-self.masked_frames:,:])
+                # # Convert axis-angle to quaternion
+                # predicted_quaternions = axis_angle_to_quaternion(predicted_obj_pose[:,-self.masked_frames:,:])
+                # target_quaternions = axis_angle_to_quaternion(obj_pose[:,-self.masked_frames:,:])
 
-                # Apply double cover correction
-                corrected_predicted_quaternions = correct_for_double_cover(predicted_quaternions, target_quaternions)
+                # # Apply double cover correction
+                # corrected_predicted_quaternions = correct_for_double_cover(predicted_quaternions, target_quaternions)
 
-                # Compute quaternion distance as loss with the correction
-                loss = quaternion_distance(corrected_predicted_quaternions, target_quaternions)
-                pose_loss = torch.mean(loss)
+                # # Compute quaternion distance as loss with the correction
+                # loss = quaternion_distance(corrected_predicted_quaternions, target_quaternions)
+                # pose_loss = torch.mean(loss)
 
                 # Compute L2 loss (MSE) for both pose and translation
-                #pose_loss = axis_angle_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
+                pose_loss = axis_angle_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
                 trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
                 
                 # Combine the losses
-                total_loss = 10 * pose_loss + trans_loss
+                total_loss = pose_loss #+ trans_loss
 
                 # Logging the losses
                 self.log('train_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -1891,7 +1891,13 @@ if __name__ == "__main__":
         print("Ready to train with data_module", flush=True)
         #breakpoint()
         model_combined = CombinedTrans(frames_subclip, masked_frames)
-        model_combined.to(device)
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
+
+        #Load the state dict from the checkpoint into the model
+        checkpoint = torch.load(model_path, map_location=device)
+        model_combined.load_state_dict(checkpoint)
+        #model_combined.to(device)
         wandb_logger = WandbLogger()
         wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients
         # Initialize Trainer

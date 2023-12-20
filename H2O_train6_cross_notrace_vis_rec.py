@@ -123,24 +123,24 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints, \
     fraction=1.0, transparency=0.4, scale_factor=1.0):
     
-    ##print("Start of project_mesh_on_image function.")
-    ##print(f"Number of projected_verts_smpl: {len(projected_verts)}")
+    print("Start of project_mesh_on_image function.")
+    print(f"Number of projected_verts_smpl: {len(projected_verts)}")
     
     # Convert faces to a list if it's a numpy array
     if isinstance(faces, np.ndarray):
         faces = faces.tolist()
     
-    ##print(f"Original number of faces: {len(faces)}")
+    print(f"Original number of faces: {len(faces)}")
     
     # Randomly sample a fraction of the faces
     sampled_faces = random.sample(faces, int(len(faces) * fraction))
-    ##print(f"Number of sampled faces: {len(sampled_faces)}")
+    print(f"Number of sampled faces: {len(sampled_faces)}")
     
     # Randomly sample a fraction of the obj faces
     obj_sampled_faces = obj_faces
     candidate_obj_sampled_faces = candidate_faces_np
     #random.sample(obj_faces, int(len(obj_faces) * fraction))
-    ###print(f"Number of obj sampled faces: {len(obj_sampled_faces)}")
+    #print(f"Number of obj sampled faces: {len(obj_sampled_faces)}")
 
     # Resize the image based on the scale_factor
     img_height, img_width = img.shape[:2]
@@ -276,48 +276,48 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     #     cv2.circle(img, (start_x, start_y + i*30), radius=7, color=color, thickness=-1)
     #     cv2.putText(img, name, (start_x + 20, start_y + i*30 + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
 
-    # ##print("End of project_mesh_on_image function.")
+    # print("End of project_mesh_on_image function.")
     return img
 
 def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, distortion_cam, img):
     
-    ##print("Start of render_smpl function.")
+    print("Start of render_smpl function.")
     
     batch_size = 1
-    ##print(f"batch_size: {batch_size}")
+    print(f"batch_size: {batch_size}")
 
     # Create the SMPL layer
     smpl_layer = SMPL_Layer(
         center_idx=0,
         gender='male',
         model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
-    ##print("SMPL_Layer created.")
+    print("SMPL_Layer created.")
 
     # Process pose parameters
     pose_params_start = torch.tensor(transformed_pose[:3], dtype=torch.float32)
     pose_params_rest = torch.tensor(transformed_pose[3:72], dtype=torch.float32)
     pose_params_rest[-6:] = 0
     pose_params = torch.cat([pose_params_start, pose_params_rest]).unsqueeze(0).repeat(batch_size, 1)
-    ##print(f"pose_params shape: {pose_params.shape}")
+    print(f"pose_params shape: {pose_params.shape}")
 
     shape_params = torch.tensor(betas, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    ##print(f"shape_params shape: {shape_params.shape}")
+    print(f"shape_params shape: {shape_params.shape}")
 
     obj_trans = torch.tensor(transformed_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    ##print(f"obj_trans shape: {obj_trans.shape}")
+    print(f"obj_trans shape: {obj_trans.shape}")
 
     # # Process obj parameters
     # obj_obj_trans = torch.tensor(transformed_obj_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    # ##print(f"Obj_trans shape: {obj_obj_trans.shape}")
+    # print(f"Obj_trans shape: {obj_obj_trans.shape}")
 
     # obj_pose_params = torch.tensor(transformed_obj_pose, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-    # ##print(f"Obj_pose shape: {obj_trans.shape}")
+    # print(f"Obj_pose shape: {obj_trans.shape}")
 
     # GPU mode
     cuda = torch.cuda.is_available()
-    ##print(f"CUDA available: {cuda}")
+    print(f"CUDA available: {cuda}")
     device = torch.device("cuda:0" if cuda else "cpu")
-    ##print(f"Device: {device}")
+    print(f"Device: {device}")
     
     pose_params = pose_params.to(device)
     shape_params = shape_params.to(device)
@@ -325,22 +325,22 @@ def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, dist
     smpl_layer = smpl_layer.to(device)
     # obj_obj_trans = obj_obj_trans.to(device)
     # obj_pose_params = obj_pose_params.to(device)
-    ##print("All tensors and models moved to device.")
+    print("All tensors and models moved to device.")
 
     # Forward from the SMPL layer
     verts, J = smpl_layer(pose_params, th_betas=shape_params, th_trans=obj_trans)
 
 
-    ##print(J.shape)
-    ##print(verts.shape)
+    print(J.shape)
+    print(verts.shape)
 
     J = J.squeeze(0)
     #verts = verts.squeeze(0)
 
 
 
-    ##print(J.shape)
-    ###print(verts.shape)
+    print(J.shape)
+    #print(verts.shape)
 
 
     # Extracting joints from SMPL skeleton
@@ -413,11 +413,11 @@ def render_smpl(transformed_pose, transformed_trans, betas, intrinsics_cam, dist
     # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
     #                 left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]
     
-    ###print(f"verts shape: {verts.shape}, Jtr shape: {Jtr.shape}")
+    #print(f"verts shape: {verts.shape}, Jtr shape: {Jtr.shape}")
     verts = verts.cpu()  # Move verts to CPU for subsequent operations
-    ##print("verts moved to CPU.")
+    print("verts moved to CPU.")
     projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in verts[0].detach().numpy()]
-    ##print(f"Number of projected_verts: {len(projected_verts)}")
+    print(f"Number of projected_verts: {len(projected_verts)}")
 
 
     verts = verts.squeeze(0).cpu().numpy()
@@ -461,8 +461,8 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
     object_vertices = np.asarray(object_mesh.vertices)
     
-    # Debug: ##print object vertices before any transformation
-    ##print("Object vertices before any transformation: ", object_vertices)
+    # Debug: print object vertices before any transformation
+    print("Object vertices before any transformation: ", object_vertices)
 
     # Compute the centroid of the object
     centroid = np.mean(object_vertices, axis=0)
@@ -479,7 +479,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     T_mesh[:3, 3] = obj_trans
     
     # Debug: Verify T_mesh
-    # ##print("T_mesh: ", T_mesh)
+    # print("T_mesh: ", T_mesh)
 
     # # Extract rotation and translation of camera from world coordinates
     # R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
@@ -491,7 +491,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     # T_cam[:3, 3] = t_w_c
     
     # # Debug: Verify T_cam
-    # ##print("T_cam: ", T_cam)
+    # print("T_cam: ", T_cam)
 
     # Ensure types are float64
     #T_cam = T_cam.astype(np.float64)
@@ -502,7 +502,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     T_mesh_in_cam = T_mesh
 
     # Debug: Verify T_mesh_in_cam
-    ##print("T_mesh_in_cam: ", T_mesh_in_cam)
+    print("T_mesh_in_cam: ", T_mesh_in_cam)
     
     # Transform the object's vertices using T_mesh_in_cam
     transformed_vertices = object_vertices
@@ -510,7 +510,7 @@ def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
     transformed_vertices = transformed_vertices_homogeneous[:3, :].T
 
     # Debug: Check transformed object
-    # ##print("Transformed vertices: ", transformed_vertices)
+    # print("Transformed vertices: ", transformed_vertices)
 
     # Update object mesh vertices
     object_mesh.vertices = o3d.utility.Vector3dVector(transformed_vertices)
@@ -646,10 +646,10 @@ class CombinedTrans(pl.LightningModule):
         smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        #print("SMPL Pose:", smpl_pose.shape)
-        #print("SMPL Joints:", smpl_joints.shape)
-        #print("Object Pose:", obj_pose.shape)
-        #print("Object Trans:", obj_trans.shape)
+        print("SMPL Pose:", smpl_pose.shape)
+        print("SMPL Joints:", smpl_joints.shape)
+        print("Object Pose:", obj_pose.shape)
+        print("Object Trans:", obj_trans.shape)
 
         masked_obj_pose = obj_pose.clone()
         masked_obj_trans = obj_trans.clone()
@@ -671,11 +671,11 @@ class CombinedTrans(pl.LightningModule):
         embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
         embedded_obj_trans = self.mlp_obj_trans(masked_obj_trans)
 
-        # #Print shapes of the embedded tensors
-        #print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
-        #print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
-        #print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
-        #print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
+        # Print shapes of the embedded tensors
+        print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
+        print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
+        print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
+        print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
 
         #Initialize tgt_mask
         #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
@@ -696,9 +696,9 @@ class CombinedTrans(pl.LightningModule):
         predicted_obj_pose = self.mlp_output_pose(predicted_obj_pose_emb.permute(1,0,2))
         predicted_obj_trans = self.mlp_output_trans(predicted_obj_trans_emb.permute(1,0,2))
 
-        # #Print dimensions of the tensors
-        # #print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
-        # #print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
+        # Print dimensions of the tensors
+        #print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
+        #print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
 
         return predicted_obj_pose, predicted_obj_trans
 
@@ -709,408 +709,411 @@ def main():
     #dataset = []
 
     # Set scene
-    identifiers = ["Date03_Sub03_tablesquare_move", "Date03_Sub03_tablesmall_lift","Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
-    "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
+    identifier = "Date03_Sub03_tablesmall_lift"
+    # Change .pt name when creating a new one
+    data_file_path = os.path.join('/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy', identifier+".pkl")
+
+    temp_dir = "/scratch_net/biwidl307/lgermano/crossvit/visualizations/temp_frames"
+    if not os.path.exists(temp_dir):
+        os.makedirs(temp_dir)
+        print(f"Created directory: {temp_dir}")
+    else:
+        # Delete all files and subdirectories in the directory
+        for filename in os.listdir(temp_dir):
+            file_path = os.path.join(temp_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                return f"Failed to delete {file_path}. Reason: {e}"
+        
+        print(f"Directory {temp_dir} already exists. Its contents have been deleted.")
+
+    # Check if the data has already been saved
+    if os.path.exists(data_file_path):
+        # Load the saved data
+        with open(data_file_path, 'rb') as f:
+            cam_data = pickle.load(f)
     
-    for identifier in identifiers:
+    #print(cam_data[0][0].keys())
+    # for cam_id in range(4):
+    #     for idx in range(20):
+    #         print(dataset[cam_id][idx].values())
+    frames_subclip = 12 # 115/12 = 9
+    masked_frames = 4
+    model = CombinedTrans(frames_subclip, masked_frames)
 
-        print("Processing:", identifier, flush=True)
-        
-        # Change .pt name when creating a new one
-        data_file_path = os.path.join('/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy', identifier+".pkl")
+    # Specify device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")   
 
-        temp_dir = "/scratch_net/biwidl307/lgermano/crossvit/visualizations/temp_frames"
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir)
-            ##print(f"Created directory: {temp_dir}")
-        else:
-            # Delete all files and subdirectories in the directory
-            for filename in os.listdir(temp_dir):
-                file_path = os.path.join(temp_dir, filename)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    return f"Failed to delete {file_path}. Reason: {e}"
-            
-            ##print(f"Directory {temp_dir} already exists. Its contents have been deleted.")
+    # Move the model to device
+    model.to(device)
+    model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+    checkpoint = torch.load(model_path)
+    model.load_state_dict(checkpoint)
 
-        # Check if the data has already been saved
-        if os.path.exists(data_file_path):
-            # Load the saved data
-            with open(data_file_path, 'rb') as f:
-                cam_data = pickle.load(f)
-        
-        ###print(cam_data[0][0].keys())
-        # for cam_id in range(4):
-        #     for idx in range(20):
-        #         ##print(dataset[cam_id][idx].values())
-        frames_subclip = 12 # 115/12 = 9
-        masked_frames = 4
-        model = CombinedTrans(frames_subclip, masked_frames)
+    # Set the model to evaluation mode
+    model.eval()
 
-        # Specify device
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")   
+    #######################################################################s
 
-        # Move the model to device
-        model.to(device)
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
-        checkpoint = torch.load(model_path)
-        model.load_state_dict(checkpoint)
+    # def compute_ADD(GT_vertices, candidate_vertices):
+    #     # Convert the data to PyTorch tensors and transfer to GPU
+    #     GT_vertices_torch = torch.tensor(GT_vertices, device='cuda')
+    #     candidate_vertices_torch = torch.tensor(candidate_vertices, device='cuda')
 
-        # Set the model to evaluation mode
-        model.eval()
+    #     # Compute the distances
+    #     distances = torch.norm(GT_vertices_torch - candidate_vertices_torch, dim=1)
+    #     return torch.mean(distances).item()  # Convert the result back to a Python scalar
 
-        #######################################################################s
+    # def compute_ADD_S(GT_vertices, candidate_vertices):
+    #     # Convert the data to PyTorch tensors and transfer to GPU
+    #     GT_vertices_torch = torch.tensor(GT_vertices, device='cuda')
+    #     candidate_vertices_torch = torch.tensor(candidate_vertices, device='cuda')
 
-        # def compute_ADD(GT_vertices, candidate_vertices):
-        #     # Convert the data to PyTorch tensors and transfer to GPU
-        #     GT_vertices_torch = torch.tensor(GT_vertices, device='cuda')
-        #     candidate_vertices_torch = torch.tensor(candidate_vertices, device='cuda')
+    #     # Compute the pairwise distances
+    #     distances = torch.cdist(GT_vertices_torch.unsqueeze(0), candidate_vertices_torch.unsqueeze(0)).squeeze(0)
 
-        #     # Compute the distances
-        #     distances = torch.norm(GT_vertices_torch - candidate_vertices_torch, dim=1)
-        #     return torch.mean(distances).item()  # Convert the result back to a Python scalar
+    #     # Find the minimum distance for each point in GT_vertices
+    #     min_distances = torch.min(distances, dim=1).values
 
-        # def compute_ADD_S(GT_vertices, candidate_vertices):
-        #     # Convert the data to PyTorch tensors and transfer to GPU
-        #     GT_vertices_torch = torch.tensor(GT_vertices, device='cuda')
-        #     candidate_vertices_torch = torch.tensor(candidate_vertices, device='cuda')
+    #    return torch.mean(min_distances).item()  # Convert the result back to a Python scalar
 
-        #     # Compute the pairwise distances
-        #     distances = torch.cdist(GT_vertices_torch.unsqueeze(0), candidate_vertices_torch.unsqueeze(0)).squeeze(0)
+    def compute_cd(GT_vertices, candidate_vertices):
+        # Convert lists to numpy arrays for efficient computation
+        A = np.array(GT_vertices)
+        B = np.array(candidate_vertices)
 
-        #     # Find the minimum distance for each point in GT_vertices
-        #     min_distances = torch.min(distances, dim=1).values
+        # Compute squared distances from each point in A to the closest point in B, and vice versa
+        A_B_dist = np.sum([min(np.sum((a - B)**2, axis=1)) for a in A])
+        B_A_dist = np.sum([min(np.sum((b - A)**2, axis=1)) for b in B])
 
-        #    return torch.mean(min_distances).item()  # Convert the result back to a Python scalar
+        # Compute the Chamfer Distance
+        chamfer_distance = A_B_dist / len(A) + B_A_dist / len(B)
 
-        def compute_cd(GT_vertices, candidate_vertices):
-            # Convert lists to numpy arrays for efficient computation
-            # For each point in GT consider the closest point in PR
-            # And viceversa. Sum the averages.
-            kdtree1 = cKDTree(GT_vertices)
-            dists1, indices1 = kdtree1.query(candidate_vertices)
-            kdtree2 = cKDTree(candidate_vertices)
-            dists2, indices2 = kdtree2.query(GT_vertices)
-            return 0.5*(dists1.mean()+dists2.mean())   #!NOTE should not be mean of all, see https://pdal.io/en/stable/apps/chamfer.html
+        return chamfer_distance
 
-        def add_err(pred,gt):
-            """
-            Average Distance of Model Points for objects with no indistinguishable views
-            - by Hinterstoisser et al. (ACCV 2012).
-            The direct distance is considered
-            """
-            #   pred_pts = (pred@to_homo(model_pts).T).T[:,:3]
-            #   gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
-            e = np.linalg.norm(pred - gt, axis=1).mean()
-            return e
+    def add_err(pred,gt):
+      """
+      Average Distance of Model Points for objects with no indistinguishable views
+      - by Hinterstoisser et al. (ACCV 2012).
+      """
+        #   pred_pts = (pred@to_homo(model_pts).T).T[:,:3]
+        #   gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
+      e = np.linalg.norm(pred - gt, axis=1).mean()
+      return e
 
-        def adi_err(pred_pts,gt_pts):
-            """
-            @pred: 4x4 mat
-            @gt:
-            @model: (N,3)
-            For each GT point, the distnace to the closest PR point is considered
-            """
-            # = (pred@to_homo(model_pts).T).T[:,:3]
-            #gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
-            nn_index = cKDTree(pred_pts)
-            nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
-            e = nn_dists.mean()
-            return e
+    def adi_err(pred_pts,gt_pts):
+        """
+        @pred: 4x4 mat
+        @gt:
+        @model: (N,3)
+        """
+        # = (pred@to_homo(model_pts).T).T[:,:3]
+        #gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
+        nn_index = cKDTree(pred_pts)
+        nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
+        e = nn_dists.mean()
+        return e
 
-        def compute_auc(rec, max_val=0.1):
-            if len(rec) == 0:
-                return 0
-            rec = np.sort(np.array(rec))
-            n = len(rec)
-            ##print(n)
-            prec = np.arange(1, n + 1) / float(n)
-            rec = rec.reshape(-1)
-            prec = prec.reshape(-1)
-            index = np.where(rec < max_val)[0]
-            rec = rec[index]
-            prec = prec[index]
+    def compute_auc(rec, max_val=0.1):
+        if len(rec) == 0:
+            return 0
+        rec = np.sort(np.array(rec))
+        n = len(rec)
+        print(n)
+        prec = np.arange(1, n + 1) / float(n)
+        rec = rec.reshape(-1)
+        prec = prec.reshape(-1)
+        index = np.where(rec < max_val)[0]
+        rec = rec[index]
+        prec = prec[index]
 
-            if len(prec) == 0:
-                return 0
+        if len(prec) == 0:
+            return 0
 
-            mrec = [0, *list(rec), max_val]
-            # Only add prec[-1] if prec is not empty
-            mpre = [0, *list(prec)] + ([prec[-1]] if len(prec) > 0 else [])
+        mrec = [0, *list(rec), max_val]
+        # Only add prec[-1] if prec is not empty
+        mpre = [0, *list(prec)] + ([prec[-1]] if len(prec) > 0 else [])
 
-            for i in range(1, len(mpre)):
-                mpre[i] = max(mpre[i], mpre[i - 1])
-            mpre = np.array(mpre)
-            mrec = np.array(mrec)
-            i = np.where(mrec[1:] != mrec[:len(mrec) - 1])[0] + 1
-            ap = np.sum((mrec[i] - mrec[i - 1]) * mpre[i]) / max_val
-            return ap
+        for i in range(1, len(mpre)):
+            mpre[i] = max(mpre[i], mpre[i - 1])
+        mpre = np.array(mpre)
+        mrec = np.array(mrec)
+        i = np.where(mrec[1:] != mrec[:len(mrec) - 1])[0] + 1
+        ap = np.sum((mrec[i] - mrec[i - 1]) * mpre[i]) / max_val
+        return ap
 
-        # Initialize lists to store ADD and ADD-S values for AUC computation
-        # cam_data = {0: [], 1: [], 2: [], 3: []}  # Initialize a dictionary to hold data for each camera
+    # Initialize lists to store ADD and ADD-S values for AUC computation
+    # cam_data = {0: [], 1: [], 2: [], 3: []}  # Initialize a dictionary to hold data for each camera
 
-        all_ADD_values = {0: [], 1: [], 2: [], 3: []}
-        all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
-        all_CD_values = {0: [], 1: [], 2: [], 3: []}
+    all_ADD_values = {0: [], 1: [], 2: [], 3: []}
+    all_ADD_S_values = {0: [], 1: [], 2: [], 3: []}
+    all_CD_values = {0: [], 1: [], 2: [], 3: []}
 
-        max_th = 0.10
+    max_th = 0.10
 
-        ##########################################################################
+    ##########################################################################
 
-        # Initialize variables to store the previous object pose and translation for each camera
-        prev_obj_poses = [None] * 4  # 4 cameras
-        prev_obj_transes = [None] * 4
-        frame_idx = 0
-        # Process interpolated frames
-        #for idx in range(0,len(cam_data[2]),masked_frames): 
-        for idx in range(0,len(cam_data[2]) - frames_subclip +1, 1): 
-            images = []
-            for cam_id in [2]:
+    # Initialize variables to store the previous object pose and translation for each camera
+    frame_idx = 0
+    prev_obj_pose = None
+    prev_obj_trans = None
+    items = [None] * 4
 
-                #len = 40 (inx 0 -39,), mask = 4 (mask of first indexed 36)
-                obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_pose']
-                obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_trans']
-                identifier = cam_data[cam_id][idx]['scene']
-                betas = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['betas']
-                smpl_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['pose']
-                smpl_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['trans']
-                smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['joints']
-                date = cam_data[cam_id][idx]['date']
-                obj_template_path = cam_data[cam_id][idx]['obj_template_path']
-
-                # There is no image path for the momesmpl_posent...
-                
-                #print(cam_id)
-                #print(cam_data[cam_id][idx]['obj_template_path'])
-                #print(smpl_pose)
-                #print(smpl_trans)
-
-                base_path = "/scratch_net/biwidl307_second/lgermano/behave"
-            
-                cam_params = load_config(cam_id, base_path, date)
-                intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path)
-
-                img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
-
-                # transformed_pose, transformed_trans = transform_smpl_to_camera_frame(smpl_pose, smpl_trans, cam_params)
-                # transformed_pose, transformed_trans = smpl_pose, smpl_trans
-                
-                # Recursive
-                # If there are previous object pose and translation, use them
-                # if prev_obj_poses[cam_id] is not None and prev_obj_transes[cam_id] is not None:
-                #     cam_data[cam_id][idx]['prev_obj_pose'] = prev_obj_poses[cam_id]
-                #     cam_data[cam_id][idx]['prev_obj_trans'] = prev_obj_transes[cam_id]
-                # else:
-                #     #print("Recursive architecture, initialized with obj pose/trans for frame 0")
-                #     prev_obj_pose = cam_data[cam_id][idx]['prev_obj_pose']
-                #     prev_obj_trans = cam_data[cam_id][idx]['prev_obj_trans']
-
-                # Rendering
-                selected_joints, verts, projected_verts, smpl_faces = render_smpl(smpl_pose, smpl_trans, betas, intrinsics_cam, distortion_cam, img)
-                projected_selected_joints = [project_to_image(joint, intrinsics_cam, distortion_cam) for joint in selected_joints]           
-
-                # Specify device
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-                scene = cam_data[cam_id][0]['scene']
-                start_idx = idx
-                end_idx = idx + frames_subclip
-                subclip_data = cam_data[cam_id][start_idx:end_idx]
-                keys = ['pose', 'joints', 'obj_pose', 'obj_trans']
-
-                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
-                candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
-                
-                # Store the candidate pose and translation for use in the next iteration
-                # prev_obj_poses = candidate_obj_pose_tensor
-                # prev_obj_transes = candidate_obj_trans_tensor
-                
-                candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
-                candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
-                
-                # Plot from the first predicted frame onward
-                transformed_object = plot_obj_in_camera_frame(candidate_obj_pose[0,-masked_frames,:], candidate_obj_trans[0,-masked_frames,:], obj_template_path)
-                vertices_np = np.asarray(transformed_object.vertices)  # Convert directly to numpy array
-                obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in vertices_np]
-                faces_np = np.asarray(transformed_object.triangles)  # Convert the triangles to numpy array
-
-                #GT
-                GT_obj = plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path)
-                candidate_vertices_np = np.asarray(GT_obj.vertices)  # Convert directly to numpy array
-                candidate_obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in candidate_vertices_np]
-                candidate_faces_np = np.asarray(GT_obj.triangles)  # Convert the triangles to numpy array        
-                
-                img = project_mesh_on_image(img, projected_verts, smpl_faces, obj_projected_verts, faces_np, \
-                candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints)
-                
-                
-                candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
-                candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
-
-                # Calculate MSE for obj_pose
-                error_pose = candidate_obj_pose - obj_pose
-                obj_pose_loss = np.mean(np.square(error_pose))
-
-                # Calculate MSE for obj_trans
-                error_trans = candidate_obj_trans - obj_trans
-                obj_trans_loss = np.mean(np.square(error_trans))
-                
-                # Add cam_id onto the image
-                font = cv2.FONT_HERSHEY_SIMPLEX 
-                fontScale = 1
-                fontColor = (255, 255, 255) # White color
-                lineType = 4
-
-                # Text positions
-                bottomLeftCornerOfText = (10, 50)  # Position for Camera ID
-                bottomRightCornerOfText1 = (10, 100)  # Position for MSE pose
-                bottomRightCornerOfText2 = (10, 150)  # Position for MSE trans
-
-                # Put text on the image
-                cv2.putText(img, f'Camera ID: {cam_id}', 
-                            bottomLeftCornerOfText, 
-                            font, 
-                            fontScale,
-                            fontColor,
-                            lineType)
-
-                cv2.putText(img, f'MSE pose: {obj_pose_loss:.4f}', 
-                            bottomRightCornerOfText1, 
-                            font, 
-                            fontScale,
-                            fontColor,
-                            lineType)
-
-                cv2.putText(img, f'MSE trans: {obj_trans_loss:.4f}', 
-                            bottomRightCornerOfText2, 
-                            font, 
-                            fontScale,
-                            fontColor,
-                            lineType)
-
-                ##print(f"Rendered SMPL on image for camera {cam_id}.")
-                images.append(img)
-
-                ##########################################################################
-                # Convert the meshes to point clouds by using their vertices
-                GT_obj_pcd = o3d.geometry.PointCloud()
-                GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
-
-                candidate_obj_pcd = o3d.geometry.PointCloud()
-                candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
-                #candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
-
-
-                # Convert Open3D point clouds to numpy arrays
-                GT_vertices = np.asarray(GT_obj_pcd.points)
-                candidate_vertices = np.asarray(candidate_obj_pcd.points)
-
-                # ###print the lengths of the numpy arrays
-                ###print("Length of GT_obj_np:", len(GT_obj_np))
-                ###print("Length of candidate_obj_np:", len(candidate_obj_np))
-
-                # # Calculate 5% of the total number of points
-                # num_points = GT_obj_np.shape[0]
-                # num_sampled_points = 10 #int(num_points * 0.0005)
-
-                # # Generate random indices
-                # np.random.seed(0) # for reproducibility
-                # random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
-
-                # Select the points using these indices
-                # GT_vertices = GT_obj_np#[random_indices]
-                # candidate_vertices = candidate_obj_np#[random_indices]
-
-                # Now you can compute ADD and ADD-S and CD
-                add = add_err(candidate_vertices, GT_vertices)
-                add_s = adi_err(candidate_vertices, GT_vertices)
-                cd = compute_cd(GT_vertices, candidate_vertices)
-
-                ###print the computed values
-                ##print("ADD:", add)
-                ##print("ADD-S:", add_s)
-                ##print("CD:", cd)
-
-                # Store ADD and ADD-S values
-                # scene_cam_ADD_values.append(add)
-                # scene_cam_ADD_S_values.append(add_s)
-                # scene_cam_CD_values.append(cd)
-                all_ADD_values[cam_id].append(add)
-                all_ADD_S_values[cam_id].append(add_s)
-                all_CD_values[cam_id].append(cd)
-
-                ############################################################################
-            
-            ##print("\nCombining images...")
-            num_images = len(images)
-
-            # Handle cases for different number of images
-            if num_images == 1:
-                all_images = images[0]
-            elif num_images == 2:
-                all_images = np.hstack((images[0], images[1]))
-            elif num_images == 3:
-                top_row = np.hstack((images[0], images[1]))
-                all_images = np.vstack((top_row, images[2]))
-            elif num_images == 4:
-                top_row = np.hstack((images[0], images[1]))
-                bottom_row = np.hstack((images[2], images[3]))
-                all_images = np.vstack((top_row, bottom_row))
-
-            height, width = all_images.shape[:2]
-            new_width = int(width * 1.0)
-            new_height = int(height * 1.0)
-            new_width = new_width if new_width % 2 == 0 else new_width + 1
-            new_height = new_height if new_height % 2 == 0 else new_height + 1
-
-            resized_image = cv2.resize(all_images, (new_width, new_height))
-            cv2.putText(resized_image, identifier, (10, new_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
-            frame_path = os.path.join(temp_dir, "frame_{:04d}.png".format(frame_idx))
-            success = cv2.imwrite(frame_path, resized_image)
-            #print(f"Saving frame at {frame_path}. Success: {success}")
-
-            frame_idx += 1
-
-        #print("\nCreating video...")
-
-        ########################################################
-
+    for idx in range(0,len(cam_data[2]) - frames_subclip +1, 1): 
+        images = []
         for cam_id in [2]:
 
-            auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), max_th) * 100
-            auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), max_th) * 100
-            cd_mean = sum(all_CD_values[cam_id]) / len(all_CD_values[cam_id])
+            #len = 40 (inx 0 -39,), mask = 4 (mask of first indexed 36)
+            obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_pose']
+            obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_trans']
+            identifier = cam_data[cam_id][idx]['scene']
+            betas = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['betas']
+            smpl_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['pose']
+            smpl_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['trans']
+            smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['joints']
+            date = cam_data[cam_id][idx]['date']
+            obj_template_path = cam_data[cam_id][idx]['obj_template_path']
 
-            print(f"AUC for scene {identifier}, camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD [m]: {cd_mean:.2f}", flush=True)
+            # There is no image path for the moment ...
+            img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
 
-        #######################################################
+            base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+            cam_params = load_config(cam_id, base_path, date)
+            intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path)
+
+            # Specify device
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            scene = cam_data[cam_id][0]['scene']
+            
+            start_idx = idx
+            end_idx = idx + frames_subclip
+            subclip_data = cam_data[cam_id][start_idx:end_idx]
+
+            if prev_obj_pose is not None and prev_obj_trans is not None:
+
+                items[0] = torch.tensor(np.vstack([subclip_data[i]['pose'] for i in range(len(subclip_data))]), dtype=torch.float32)
+                items[1] = torch.tensor(np.vstack([subclip_data[i]['joints'] for i in range(len(subclip_data))]), dtype=torch.float32)
+                
+                items[2] = torch.roll(items[2], -1, 0)
+                #items[2][-1] = torch.zeros_like(items[2][-1])
+                items[2][-masked_frames-1] = prev_obj_pose
+                
+                items[3] = torch.roll(items[3], -1, 0)
+                #items[3][-1] = torch.zeros_like(items[3][-1])
+                items[3][-masked_frames-1] = prev_obj_trans
+
+                # Printing all variables for debugging
+                # print("items[0]:", items[0])
+                # print("items[1]:", items[1])
+                print("items[2]:", items[2])
+                print("items[3]:", items[3])
+                print("prev_obj_pose:", prev_obj_pose)
+                print("prev_obj_trans:", prev_obj_trans)
+                print("masked_frames:", masked_frames)
+                print("Length of subclip_data:", len(subclip_data))
+                print("Sample of subclip_data:", subclip_data[0])  # Prints first element as a sample
+
+            else:
+
+                keys = ['pose', 'joints','obj_pose', 'obj_trans']
+                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
+
+            candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
+            
+            # Store the candidate pose and translation for use in the next iteration
+            prev_obj_pose = candidate_obj_pose_tensor[0,-masked_frames,:]
+            prev_obj_trans = candidate_obj_trans_tensor[0,-masked_frames,:]
+            
+            candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
+            candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
+            
+            # Plot from the first predicted frame onward
+            transformed_object = plot_obj_in_camera_frame(candidate_obj_pose[0,-masked_frames,:], candidate_obj_trans[0,-masked_frames,:], obj_template_path)
+            vertices_np = np.asarray(transformed_object.vertices)  # Convert directly to numpy array
+            obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in vertices_np]
+            faces_np = np.asarray(transformed_object.triangles)  # Convert the triangles to numpy array
+            
+            # Render SMPL
+            selected_joints, verts, projected_verts, smpl_faces = render_smpl(smpl_pose, smpl_trans, betas, intrinsics_cam, distortion_cam, img)
+            projected_selected_joints = [project_to_image(joint, intrinsics_cam, distortion_cam) for joint in selected_joints]           
+
+            # Render GT
+            GT_obj = plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path)
+            candidate_vertices_np = np.asarray(GT_obj.vertices)  # Convert directly to numpy array
+            candidate_obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in candidate_vertices_np]
+            candidate_faces_np = np.asarray(GT_obj.triangles)  # Convert the triangles to numpy array        
+            
+            img = project_mesh_on_image(img, projected_verts, smpl_faces, obj_projected_verts, faces_np, \
+            candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints)
+            
+            
+            candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
+            candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
+
+            # Calculate MSE for obj_pose
+            error_pose = candidate_obj_pose - obj_pose
+            obj_pose_loss = np.mean(np.square(error_pose))
+
+            # Calculate MSE for obj_trans
+            error_trans = candidate_obj_trans - obj_trans
+            obj_trans_loss = np.mean(np.square(error_trans))
+            
+            # Add cam_id onto the image
+            font = cv2.FONT_HERSHEY_SIMPLEX 
+            fontScale = 1
+            fontColor = (255, 255, 255) # White color
+            lineType = 4
+
+            # Text positions
+            bottomLeftCornerOfText = (10, 50)  # Position for Camera ID
+            bottomRightCornerOfText1 = (10, 100)  # Position for MSE pose
+            bottomRightCornerOfText2 = (10, 150)  # Position for MSE trans
+
+            # Put text on the image
+            cv2.putText(img, f'Camera ID: {cam_id}', 
+                        bottomLeftCornerOfText, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
+
+            cv2.putText(img, f'MSE pose: {obj_pose_loss:.4f}', 
+                        bottomRightCornerOfText1, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
+
+            cv2.putText(img, f'MSE trans: {obj_trans_loss:.4f}', 
+                        bottomRightCornerOfText2, 
+                        font, 
+                        fontScale,
+                        fontColor,
+                        lineType)
+
+            print(f"Rendered SMPL on image for camera {cam_id}.")
+            images.append(img)
+
+            ##########################################################################
+            # Convert the meshes to point clouds by using their vertices
+            GT_obj_pcd = o3d.geometry.PointCloud()
+            GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+
+            candidate_obj_pcd = o3d.geometry.PointCloud()
+            candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
+            #candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+
+
+            # Convert Open3D point clouds to numpy arrays
+            GT_obj_np = np.asarray(GT_obj_pcd.points)
+            candidate_obj_np = np.asarray(candidate_obj_pcd.points)
+
+            # #print the lengths of the numpy arrays
+            #print("Length of GT_obj_np:", len(GT_obj_np))
+            #print("Length of candidate_obj_np:", len(candidate_obj_np))
+
+            # Calculate 5% of the total number of points
+            num_points = GT_obj_np.shape[0]
+            num_sampled_points = 10 #int(num_points * 0.0005)
+
+            # Generate random indices
+            np.random.seed(0) # for reproducibility
+            random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
+
+            # Select the points using these indices
+            GT_vertices = GT_obj_np[random_indices]
+            candidate_vertices = candidate_obj_np[random_indices]
+
+            # Now you can compute ADD and ADD-S and CD
+            add = add_err(candidate_vertices, GT_vertices)
+            add_s = adi_err(candidate_vertices, GT_vertices)
+            cd = compute_cd(GT_vertices, candidate_vertices)
+
+            #print the computed values
+            print("ADD:", add)
+            print("ADD-S:", add_s)
+            print("CD:", cd)
+
+            # Store ADD and ADD-S values
+            # scene_cam_ADD_values.append(add)
+            # scene_cam_ADD_S_values.append(add_s)
+            # scene_cam_CD_values.append(cd)
+            all_ADD_values[cam_id].append(add)
+            all_ADD_S_values[cam_id].append(add_s)
+            all_CD_values[cam_id].append(cd)
+
+            ############################################################################
         
+        print("\nCombining images...")
+        num_images = len(images)
 
-        # Get the current timestamp
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        # Handle cases for different number of images
+        if num_images == 1:
+            all_images = images[0]
+        elif num_images == 2:
+            all_images = np.hstack((images[0], images[1]))
+        elif num_images == 3:
+            top_row = np.hstack((images[0], images[1]))
+            all_images = np.vstack((top_row, images[2]))
+        elif num_images == 4:
+            top_row = np.hstack((images[0], images[1]))
+            bottom_row = np.hstack((images[2], images[3]))
+            all_images = np.vstack((top_row, bottom_row))
 
-        base_video_path = os.path.join("/scratch_net/biwidl307/lgermano/crossvit/visualizations/", identifier)
-        video_path = f"{base_video_path}_{timestamp}.mp4"
+        height, width = all_images.shape[:2]
+        new_width = int(width * 1.0)
+        new_height = int(height * 1.0)
+        new_width = new_width if new_width % 2 == 0 else new_width + 1
+        new_height = new_height if new_height % 2 == 0 else new_height + 1
 
-        subprocess.call([
-            "ffmpeg",
-            "-r", "2",
-            "-i", os.path.join(temp_dir, "frame_%04d.png"),
-            "-vcodec", "libx264", 
-            "-crf", "30",
-            "-pix_fmt", "yuv420p",
-            video_path
-        ])
-        #print(f"Video saved at {video_path}.")
-        
-        #print("\nCleaning up temporary files...")
-        shutil.rmtree(temp_dir)
-        cv2.destroyAllWindows()
-        #print("Cleanup complete.")
+        resized_image = cv2.resize(all_images, (new_width, new_height))
+        cv2.putText(resized_image, identifier, (10, new_height - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
+        frame_path = os.path.join(temp_dir, "frame_{:04d}.png".format(frame_idx))
+        success = cv2.imwrite(frame_path, resized_image)
+        print(f"Saving frame at {frame_path}. Success: {success}")
+
+        frame_idx += 1
+
+    print("\nCreating video...")
+
+    ########################################################
+
+    for cam_id in [2]:
+
+        auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), max_th) * 100
+        auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), max_th) * 100
+        cd_mean = sum(all_CD_values[cam_id]) / len(all_CD_values[cam_id])
+
+    print(f"AUC for scene {identifier}, camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD [m]: {cd_mean:.2f}")
+
+    #######################################################
+    
+
+    # Get the current timestamp
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    base_video_path = os.path.join("/scratch_net/biwidl307/lgermano/crossvit/visualizations/", identifier)
+    video_path = f"{base_video_path}_{timestamp}.mp4"
+
+    subprocess.call([
+        "ffmpeg",
+        "-r", "2",
+        "-i", os.path.join(temp_dir, "frame_%04d.png"),
+        "-vcodec", "libx264", 
+        "-crf", "25",
+        "-pix_fmt", "yuv420p",
+        video_path
+    ])
+    print(f"Video saved at {video_path}.")
+    
+    print("\nCleaning up temporary files...")
+    shutil.rmtree(temp_dir)
+    cv2.destroyAllWindows()
+    print("Cleanup complete.")
 
 if __name__ == "__main__":
     main()
