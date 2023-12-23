@@ -41,6 +41,8 @@ from datetime import datetime
 #from memory_profiler import profile
 import pdb
 from pytorch_lightning.loggers import WandbLogger
+from behave_dataset import BehaveDataset, BehaveDataModule
+
 
 # Function to create timestamp
 def timestamp():
@@ -55,7 +57,7 @@ def create_parser():
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
     parser.add_argument('--epochs', nargs='+', type=int, default=[120])
-    parser.add_argument('--batch_size', nargs='+', type=int, default=[32])
+    parser.add_argument('--batch_size', nargs='+', type=int, default=[16])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
     parser.add_argument('--lambda_1', nargs='+', type=float, default=[1], help='Weight for mse_loss.')
@@ -1272,107 +1274,107 @@ if __name__ == "__main__":
             #     }
             #     return [optimizer], [scheduler]
 
-        class BehaveDataset(Dataset):
-            def __init__(self, labels, cam_ids, frames_subclip, selected_keys, wandb, device):
-                self.labels = labels
-                self.cam_ids = cam_ids
-                self.frames_subclip = frames_subclip
-                self.selected_keys = selected_keys
-                self.device = device
-                self.data_info = []  # Store file path, camera id, subclip index range, and window indices
+        # class BehaveDataset(Dataset):
+        #     def __init__(self, labels, cam_ids, frames_subclip, selected_keys, wandb, device):
+        #         self.labels = labels
+        #         self.cam_ids = cam_ids
+        #         self.frames_subclip = frames_subclip
+        #         self.selected_keys = selected_keys
+        #         self.device = device
+        #         self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-                base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
-                # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
-                print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
+        #         base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+        #         # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
+        #         print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
-                for label in self.labels:
-                    for cam_id in self.cam_ids:
-                        file_path = os.path.join(base_path, label + '.pkl')
-                        print(file_path)
-                        if os.path.exists(file_path):
-                            print(f"Found file: {file_path}", flush=True)
-                            with open(file_path, 'rb') as f:
+        #         for label in self.labels:
+        #             for cam_id in self.cam_ids:
+        #                 file_path = os.path.join(base_path, label + '.pkl')
+        #                 print(file_path)
+        #                 if os.path.exists(file_path):
+        #                     print(f"Found file: {file_path}", flush=True)
+        #                     with open(file_path, 'rb') as f:
 
-                                if len(self.labels) == 1:
+        #                         if len(self.labels) == 1:
 
-                                    self.dataset = pickle.load(f)
-                                    for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                                    #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                                        end_idx = start_idx + self.frames_subclip
-                                        if end_idx <= len(self.dataset[cam_id]):
-                                            self.data_info.append((file_path, cam_id, start_idx, end_idx))
+        #                             self.dataset = pickle.load(f)
+        #                             for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+        #                             #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+        #                                 end_idx = start_idx + self.frames_subclip
+        #                                 if end_idx <= len(self.dataset[cam_id]):
+        #                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
-                                else:
+        #                         else:
 
-                                    dataset = pickle.load(f)
-                                    for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                                    #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
-                                    #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                                        end_idx = start_idx + self.frames_subclip
-                                        if end_idx <= len(dataset[cam_id]):
-                                            self.data_info.append((file_path, cam_id, start_idx, end_idx))
+        #                             dataset = pickle.load(f)
+        #                             for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+        #                             #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
+        #                             #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+        #                                 end_idx = start_idx + self.frames_subclip
+        #                                 if end_idx <= len(dataset[cam_id]):
+        #                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
-            def __len__(self):
-                print(len(self.data_info))
-                return len(self.data_info)
+        #     def __len__(self):
+        #         print(len(self.data_info))
+        #         return len(self.data_info)
 
-            def __getitem__(self, idx):
-                file_path, cam_id, start_idx, end_idx = self.data_info[idx]
+        #     def __getitem__(self, idx):
+        #         file_path, cam_id, start_idx, end_idx = self.data_info[idx]
 
-                # Only possible if there is one training label
-                if len(self.labels) == 1:
-                    subclip_data = self.dataset[cam_id][start_idx:end_idx]
-                    scene = self.dataset[cam_id][0]['scene']
-                else:
-                    with open(file_path, 'rb') as f:
-                        dataset = pickle.load(f)
+        #         # Only possible if there is one training label
+        #         if len(self.labels) == 1:
+        #             subclip_data = self.dataset[cam_id][start_idx:end_idx]
+        #             scene = self.dataset[cam_id][0]['scene']
+        #         else:
+        #             with open(file_path, 'rb') as f:
+        #                 dataset = pickle.load(f)
 
-                    subclip_data = dataset[cam_id][start_idx:end_idx]
-                    scene = dataset[cam_id][0]['scene']
+        #             subclip_data = dataset[cam_id][start_idx:end_idx]
+        #             scene = dataset[cam_id][0]['scene']
 
-                items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in self.selected_keys]
+        #         items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in self.selected_keys]
 
-                return items, scene
+        #         return items, scene
 
-        class BehaveDataModule(pl.LightningDataModule):
-            def __init__(self, dataset, split, batch_size):
-                super(BehaveDataModule, self).__init__()
-                self.dataset = dataset
-                self.batch_size = batch_size
-                self.split = split
+        # class BehaveDataModule(pl.LightningDataModule):
+        #     def __init__(self, dataset, split, batch_size):
+        #         super(BehaveDataModule, self).__init__()
+        #         self.dataset = dataset
+        #         self.batch_size = batch_size
+        #         self.split = split
 
-                self.train_indices = []
-                self.val_indices = []
-                self.test_indices = []
-                train_identifiers = []
-                test_identifiers = []
+        #         self.train_indices = []
+        #         self.val_indices = []
+        #         self.test_indices = []
+        #         train_identifiers = []
+        #         test_identifiers = []
 
-                for idx, (data, scene_name) in enumerate(self.dataset):
-                    scene = scene_name  # Assuming the scene name is the second element in the tuple
-                    if scene in self.split['train']:
-                        self.train_indices.append(idx)
-                        train_identifiers.append(scene)
-                    elif scene in self.split['test']:
-                        self.test_indices.append(idx)
-                        test_identifiers.append(scene)
+        #         for idx, (data, scene_name) in enumerate(self.dataset):
+        #             scene = scene_name  # Assuming the scene name is the second element in the tuple
+        #             if scene in self.split['train']:
+        #                 self.train_indices.append(idx)
+        #                 train_identifiers.append(scene)
+        #             elif scene in self.split['test']:
+        #                 self.test_indices.append(idx)
+        #                 test_identifiers.append(scene)
 
-                self.val_indices = self.test_indices  # Assuming validation and training sets are the same
+        #         self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
-                # Uncomment to print identifiers in train and test sets
-                print(f"Identifiers in train set: {set(train_identifiers)}", flush=True)
-                print(f"Identifiers in test set: {set(test_identifiers)}", flush=True)
+        #         # Uncomment to print identifiers in train and test sets
+        #         print(f"Identifiers in train set: {set(train_identifiers)}", flush=True)
+        #         print(f"Identifiers in test set: {set(test_identifiers)}", flush=True)
 
-            def train_dataloader(self):
-                train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=2)
+        #     def train_dataloader(self):
+        #         train_dataset = Subset(self.dataset, self.train_indices)
+        #         return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=0)
 
-            def val_dataloader(self):
-                val_dataset = Subset(self.dataset, self.val_indices)
-                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
+        #     def val_dataloader(self):
+        #         val_dataset = Subset(self.dataset, self.val_indices)
+        #         return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=0)
 
-            def test_dataloader(self):
-                test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
+        #     def test_dataloader(self):
+        #         test_dataset = Subset(self.dataset, self.test_indices)
+        #         return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=0)
 
         class MLP(nn.Module):
             def __init__(self, input_dim, output_dim):
@@ -1751,7 +1753,7 @@ if __name__ == "__main__":
             #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
             processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
             labels = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
-            #labels = labels[:2]
+            labels = labels[:2]
             # date = "Date07"
             # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
             #print("Processing only ", date)
@@ -1862,36 +1864,44 @@ if __name__ == "__main__":
         # Specify device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # #Specify the path to the checkpoint
-        # model_path = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/model_leafy-smoke-2619_epoch_16.pt"
-        # #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
-
-        # #Load the state dict from the checkpoint into the model
-        # checkpoint = torch.load(model_path, map_location=device)
-        # model_combined.load_state_dict(checkpoint)
-        
-        # Move the model to device
-
-        # # Assuming 'model' is your PyTorch model for inference: epoch = 1
-        # for param in model.parameters():
-        #     param.requires_grad = False
-        
-        # Set the model to evaluation mode (you might want to set it to evaluation mode with `.eval()` if you're not training)
-        # model_combined.train()
-
-        # Initialize Trainer
-        #trainer = pl.Trainer(max_epochs=wandb.config.epochs, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
-        
         # Contains all the logic 
-        get_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
-        #breakpoint()
-        print("Ready to train with get_dataset", flush=True)
+        behave_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        
+        # Combine wandb.run.name to create a unique name for the saved file
+        save_file_name = f"{wandb.run.name}_behave_cam2_notrace_12.pt"
 
-        data_module = BehaveDataModule(get_dataset, split_dict, wandb.config.batch_size)
-        print("Ready to train with data_module", flush=True)
+        # Define the local path where the data will be saved
+        data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
+        full_save_path = os.path.join(data_file_path, save_file_name)
+
+        # Save the data module locally
+        #torch.save(data_module, full_save_path)
+        with open(full_save_path, 'wb') as f:
+            pickle.dump(behave_dataset, f)
+        
+        #Load datasets
+        #save_file_name = "earthy-star-2339_noenconprev.pt"
+
+        # data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
+        # full_save_path = os.path.join(data_file_path, save_file_name)
+        
+        # Load the data
+        with open(full_save_path, 'rb') as f:
+            behave_dataset = pickle.load(f)
+
+        #breakpoint()
+        print("Dataset loaded", flush=True)
+
+        data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
+
+
+        #########################################################################################################################
+        # Train
+
         #breakpoint()
         model_combined = CombinedTrans(frames_subclip, masked_frames)
         model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_helpful-music-3011cross_att_12_4_pose_only_axis_angle_loss_from_checkpoint_epoch_0.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
 
         #Load the state dict from the checkpoint into the model
