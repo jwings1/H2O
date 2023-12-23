@@ -65,6 +65,7 @@ from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 import scipy.spatial.transform as spt
 import pickle
 from scipy.spatial import cKDTree
+from quad_mesh_simplify import simplify_mesh
 
 
 best_val_loss = float("inf")
@@ -709,8 +710,10 @@ def main():
     #dataset = []
 
     # Set scene
-    identifiers = ["Date03_Sub03_tablesquare_move", "Date03_Sub03_tablesmall_lift","Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
-    "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
+    #identifiers = ["Date03_Sub03_tablesmall_lift", "Date03_Sub03_tablesquare_move" ,"Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
+    #"Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
+    identifiers = ["Date03_Sub03_boxmedium","Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxlarge",\
+    "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
     
     for identifier in identifiers:
 
@@ -757,6 +760,7 @@ def main():
         # Move the model to device
         model.to(device)
         model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_robust-smoke-3015cross_att_12_4_axis_angle_loss_from_checkpoint_pose_only_epoch_3.pt"
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint)
 
@@ -867,48 +871,32 @@ def main():
         prev_obj_trans = None
         items = [None] * 4
         # Process interpolated frames
-        #for idx in range(0,len(cam_data[2]),masked_frames): 
-        for idx in range(0,len(cam_data[2]) - frames_subclip +1, 1): 
+        #for idx in range(0,len(cam_data[2]),masked_frames):
+        # make a masked_frames step, only if prev_ variables are set to None
+        #for idx in range(0,len(cam_data[2]) - frames_subclip +1, frames_subclip):
+        last_frame = min(len(cam_data[2]) - frames_subclip +1, 100)
+        for idx in range(0,last_frame, 1): 
             images = []
             for cam_id in [2]:
 
-                #len = 40 (inx 0 -39,), mask = 4 (mask of first indexed 36)
-                obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_pose']
-                obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['obj_trans']
+                #len = 40 (inx 0 -39,), mask = 4 (index of first masked = 36)
+                obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames]['obj_pose']
+                obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames]['obj_trans']
                 identifier = cam_data[cam_id][idx]['scene']
-                betas = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['betas']
-                smpl_pose = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['pose']
-                smpl_trans = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['trans']
-                smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames +1]['joints']
+                betas = cam_data[cam_id][idx + frames_subclip - masked_frames]['betas']
+                smpl_pose = cam_data[cam_id][idx + frames_subclip - masked_frames]['pose']
+                smpl_trans = cam_data[cam_id][idx + frames_subclip - masked_frames]['trans']
+                smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames]['joints']
                 date = cam_data[cam_id][idx]['date']
                 obj_template_path = cam_data[cam_id][idx]['obj_template_path']
 
                 # There is no image path for the momesmpl_posent...
-                
-                #print(cam_id)
-                #print(cam_data[cam_id][idx]['obj_template_path'])
-                #print(smpl_pose)
-                #print(smpl_trans)
+                img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
 
                 base_path = "/scratch_net/biwidl307_second/lgermano/behave"
             
                 cam_params = load_config(cam_id, base_path, date)
                 intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path)
-
-                img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
-
-                # transformed_pose, transformed_trans = transform_smpl_to_camera_frame(smpl_pose, smpl_trans, cam_params)
-                # transformed_pose, transformed_trans = smpl_pose, smpl_trans
-                
-                # Recursive
-                # If there are previous object pose and translation, use them
-                # if prev_obj_poses[cam_id] is not None and prev_obj_transes[cam_id] is not None:
-                #     cam_data[cam_id][idx]['prev_obj_pose'] = prev_obj_poses[cam_id]
-                #     cam_data[cam_id][idx]['prev_obj_trans'] = prev_obj_transes[cam_id]
-                # else:
-                #     #print("Recursive architecture, initialized with obj pose/trans for frame 0")
-                #     prev_obj_pose = cam_data[cam_id][idx]['prev_obj_pose']
-                #     prev_obj_trans = cam_data[cam_id][idx]['prev_obj_trans']
 
                 # Rendering
                 selected_joints, verts, projected_verts, smpl_faces = render_smpl(smpl_pose, smpl_trans, betas, intrinsics_cam, distortion_cam, img)
@@ -941,7 +929,9 @@ def main():
                 candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
                 
                 # Store the candidate pose and translation for use in the next iteration
+                #prev_obj_pose = None #torch.from_numpy(obj_pose) #candidate_obj_pose_tensor[0,-masked_frames,:]
                 prev_obj_pose = candidate_obj_pose_tensor[0,-masked_frames,:]
+                #prev_obj_trans = None #torch.from_numpy(obj_trans) #candidate_obj_trans_tensor[0,-masked_frames,:]
                 prev_obj_trans = candidate_obj_trans_tensor[0,-masked_frames,:]
                 
                 candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
@@ -962,9 +952,8 @@ def main():
                 img = project_mesh_on_image(img, projected_verts, smpl_faces, obj_projected_verts, faces_np, \
                 candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints)
                 
-                
-                candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
-                candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
+                # candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
+                # candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
 
                 # Calculate MSE for obj_pose
                 error_pose = candidate_obj_pose - obj_pose
@@ -1011,34 +1000,48 @@ def main():
                 images.append(img)
 
                 ##########################################################################
-                # Convert the meshes to point clouds by using their vertices
-                GT_obj_pcd = o3d.geometry.PointCloud()
-                GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+                # Simplify the meshes to 100 points 
+                final_num_nodes = 100
+                
+                GT_obj_sim = o3d.geometry.PointCloud()
+                new_positions, _ = simplify_mesh(np.asarray(GT_obj.vertices), np.asarray(GT_obj.triangles).astype(np.uint32), final_num_nodes)
+                GT_obj_sim.points = o3d.utility.Vector3dVector(np.asarray(new_positions))
 
-                candidate_obj_pcd = o3d.geometry.PointCloud()
-                candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
-                #candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+                transformed_obj_sim = o3d.geometry.PointCloud()
+                new_positions2, _ = simplify_mesh(np.asarray(transformed_object.vertices), np.asarray(transformed_object.triangles).astype(np.uint32), final_num_nodes)
+                transformed_obj_sim.points = o3d.utility.Vector3dVector(np.asarray(new_positions2))
 
+                # # Convert the meshes to point clouds by using their vertices
+                # GT_obj_pcd = o3d.geometry.PointCloud()
+                # GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+
+                # candidate_obj_pcd = o3d.geometry.PointCloud()
+                # candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
+                # #candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
 
                 # Convert Open3D point clouds to numpy arrays
-                GT_obj_np = np.asarray(GT_obj_pcd.points)
-                candidate_obj_np = np.asarray(candidate_obj_pcd.points)
+                GT_vertices = np.asarray(GT_obj_sim.points)
+                candidate_vertices = np.asarray(transformed_obj_sim.points)
 
-                # ###print the lengths of the numpy arrays
-                ###print("Length of GT_obj_np:", len(GT_obj_np))
-                ###print("Length of candidate_obj_np:", len(candidate_obj_np))
+                # # ###print the lengths of the numpy arrays
+                # ###print("Length of GT_obj_np:", len(GT_obj_np))
+                # ###print("Length of candidate_obj_np:", len(candidate_obj_np))
 
-                # Calculate 5% of the total number of points
-                num_points = GT_obj_np.shape[0]
-                num_sampled_points = 100 #int(num_points * 0.0005)
+                # # Calculate 5% of the total number of points
+                # num_points = GT_obj_np.shape[0]
+                # num_sampled_points = 100 #int(num_points * 0.0005)
 
-                # Generate random indices
-                np.random.seed(0) # for reproducibility
-                random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
+                # # Generate random indices
+                # np.random.seed(0) # for reproducibility
+                # random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
 
-                Select the points using these indices
-                GT_vertices = GT_obj_np#[random_indices]
-                candidate_vertices = candidate_obj_np#[random_indices]
+                # #Select the points using these indices
+                # GT_vertices = GT_obj_np[random_indices]
+                # candidate_vertices = candidate_obj_np[random_indices]
+              
+                # #Select the points using these indices
+                # GT_vertices = GT_obj_np#[random_indices]
+                # candidate_vertices = candidate_obj_np#[random_indices]
 
                 # Now you can compute ADD and ADD-S and CD
                 add = add_err(candidate_vertices, GT_vertices)
