@@ -36,7 +36,7 @@ export CONDA_OVERRIDE_CUDA=11.8
 export WANDB_DIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
 
 #python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
-python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_rec.py "$@"
+python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_offset.py "$@"
 
 
 echo "DONE!"

@@ -759,7 +759,8 @@ def main():
 
         # Move the model to device
         model.to(device)
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_trim-wind-3037cross_att_12_4_offset_epoch_0.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_robust-smoke-3015cross_att_12_4_axis_angle_loss_from_checkpoint_pose_only_epoch_3.pt"
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint)
@@ -867,8 +868,8 @@ def main():
 
         # Initialize variables to store the previous object pose and translation for each camera
         frame_idx = 0
-        prev_obj_pose = None
-        prev_obj_trans = None
+        prev_obj_pose_offset = None
+        prev_obj_trans_offset = None
         items = [None] * 4
         # Process interpolated frames
         #for idx in range(0,len(cam_data[2]),masked_frames):
@@ -879,7 +880,10 @@ def main():
             images = []
             for cam_id in [2]:
 
-                #len = 40 (inx 0 -39,), mask = 4 (index of first masked = 36)
+                if idx == 0:
+                    current_abs_obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_pose']
+                    current_abs_obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_trans']
+                
                 obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames]['obj_pose']
                 obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames]['obj_trans']
                 identifier = cam_data[cam_id][idx]['scene']
@@ -910,35 +914,72 @@ def main():
                 end_idx = idx + frames_subclip
                 subclip_data = cam_data[cam_id][start_idx:end_idx]
 
-                if prev_obj_pose is not None and prev_obj_trans is not None:
+                if prev_obj_pose_offset is not None and prev_obj_trans_offset is not None:
 
-                    items[0] = torch.tensor(np.vstack([subclip_data[i]['pose'] for i in range(len(subclip_data))]), dtype=torch.float32)
-                    items[1] = torch.tensor(np.vstack([subclip_data[i]['joints'] for i in range(len(subclip_data))]), dtype=torch.float32)
+                    keys = ['pose', 'joints']
+                    for idx, key in enumerate(keys):
+                        tensors = []
+                        for i in range(len(subclip_data)):
+                            if i == 0:
+                                # Use a tensor of zeros for the first element
+                                zeros_tensor = torch.zeros_like(torch.tensor(subclip_data[i][key], dtype=torch.float32))
+                                tensors.append(zeros_tensor)
+                            else:
+                                # Compute the difference with the previous value
+                                diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(subclip_data[i-1][key], dtype=torch.float32)
+                                tensors.append(diff)
+                        # Stack the tensors for each key
+                        stacked_tensors = torch.stack(tensors)
+                        items[idx] = stacked_tensors
+                    
+                    
+                    # Update objects
                     
                     items[2] = torch.roll(items[2], -1, 0)
-                    items[2][-masked_frames-1] = prev_obj_pose
+                    items[2][-masked_frames-1] = prev_obj_pose_offset
                     
                     items[3] = torch.roll(items[3], -1, 0)
-                    items[3][-masked_frames-1] = prev_obj_trans
+                    items[3][-masked_frames-1] = prev_obj_trans_offset
 
                 else:
 
                     keys = ['pose', 'joints','obj_pose', 'obj_trans']
-                    items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
-
+                    #items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
+                    items = []
+                    for key in keys:
+                        tensors = []
+                        for i in range(len(subclip_data)):
+                            if i == 0:
+                                # Use a tensor of zeros for the first element
+                                zeros_tensor = torch.zeros_like(torch.tensor(subclip_data[i][key], dtype=torch.float32))
+                                tensors.append(zeros_tensor)
+                            else:
+                                # Compute the difference with the previous value
+                                diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(subclip_data[i-1][key], dtype=torch.float32)
+                                tensors.append(diff)
+                        # Stack the tensors for each key
+                        stacked_tensors = torch.stack(tensors)
+                        items.append(stacked_tensors)
+                
                 candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
                 
                 # Store the candidate pose and translation for use in the next iteration
                 #prev_obj_pose = None #torch.from_numpy(obj_pose) #candidate_obj_pose_tensor[0,-masked_frames,:]
-                prev_obj_pose = candidate_obj_pose_tensor[0,-masked_frames,:]
+                prev_obj_pose_offset = candidate_obj_pose_tensor[0,-masked_frames,:]
                 #prev_obj_trans = None #torch.from_numpy(obj_trans) #candidate_obj_trans_tensor[0,-masked_frames,:]
-                prev_obj_trans = candidate_obj_trans_tensor[0,-masked_frames,:]
+                prev_obj_trans_offset = candidate_obj_trans_tensor[0,-masked_frames,:]
                 
                 candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
                 candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
                 
                 # Plot from the first predicted frame onward
-                transformed_object = plot_obj_in_camera_frame(candidate_obj_pose[0,-masked_frames,:], candidate_obj_trans[0,-masked_frames,:], obj_template_path)
+                # An initialization for obj_pose and trans is needed. Then you can proceed recursively.
+                # From the first absolute position you either add the next offsets, or use the previous (-masekd_frames-1) position
+
+                current_abs_obj_pose += candidate_obj_pose[0,-masked_frames,:]
+                current_abs_obj_trans += candidate_obj_trans[0,-masked_frames,:]
+
+                transformed_object = plot_obj_in_camera_frame(current_abs_obj_pose, current_abs_obj_trans, obj_template_path)
                 vertices_np = np.asarray(transformed_object.vertices)  # Convert directly to numpy array
                 obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in vertices_np]
                 faces_np = np.asarray(transformed_object.triangles)  # Convert the triangles to numpy array
@@ -956,11 +997,11 @@ def main():
                 # candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
 
                 # Calculate MSE for obj_pose
-                error_pose = candidate_obj_pose - obj_pose
+                error_pose = current_abs_obj_pose - obj_pose
                 obj_pose_loss = np.mean(np.square(error_pose))
 
                 # Calculate MSE for obj_trans
-                error_trans = candidate_obj_trans - obj_trans
+                error_trans = current_abs_obj_trans - obj_trans
                 obj_trans_loss = np.mean(np.square(error_trans))
                 
                 # Add cam_id onto the image

@@ -41,7 +41,7 @@ from datetime import datetime
 #from memory_profiler import profile
 import pdb
 from pytorch_lightning.loggers import WandbLogger
-from behave_dataset import BehaveDataset, BehaveDataModule
+from behave_dataset import BehaveDatasetOffset, BehaveDatasetOffset2, BehaveDataModule
 
 
 # Function to create timestamp
@@ -1398,6 +1398,9 @@ if __name__ == "__main__":
                 self.frames_subclip = frames_subclip
                 self.masked_frames = masked_frames
                 self.automatic_optimization = False
+                self.best_avg_loss_val = float('inf')
+                
+                
                 self.num_heads = 4
                 self.d_model = 128
                 self.mlp_output_pose = MLP(self.d_model, 3)
@@ -1406,7 +1409,6 @@ if __name__ == "__main__":
                 self.mlp_smpl_joints = MLP(72, self.d_model)                
                 self.mlp_obj_pose = MLP(3, self.d_model)
                 self.mlp_obj_trans = MLP(3, self.d_model)
-                self.best_avg_loss_val = float('inf')
 
                 self.transformer_model_trans = nn.Transformer(
                     d_model = self.d_model, 
@@ -1430,17 +1432,45 @@ if __name__ == "__main__":
                 #smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
                 smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
                 # print("SMPL Pose:", smpl_pose.shape)
                 # print("SMPL Joints:", smpl_joints.shape)
                 # print("Object Pose:", obj_pose.shape)
                 # print("Object Trans:", obj_trans.shape)
-                            
-                ## Embedding inputs
-                embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
-                embedded_obj_pose = self.mlp_obj_pose(obj_pose)
-                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
-                embedded_obj_trans = self.mlp_obj_trans(obj_trans)
+
+                def positional_encoding(dim, sentence_length):
+                    """
+                    Creates a positional encoding as used in Transformer models.
+                    :param dim: Embedding size
+                    :param sentence_length: The length of the input sequence
+                    :return: A tensor of shape [sentence_length, dim] with the positional encoding.
+                    """
+                    # Initialize a matrix of zeros
+                    encoding = np.zeros((sentence_length, dim))
+
+                    # Calculate the positional encodings
+                    for pos in range(sentence_length):
+                        for i in range(0, dim, 2):
+                            encoding[pos, i] = np.sin(pos / (10000 ** ((2 * i)/dim)))
+                            encoding[pos, i + 1] = np.cos(pos / (10000 ** ((2 * (i + 1))/dim)))
+
+                    return torch.tensor(encoding, dtype=torch.float32)
+
+                # Create positional encoding
+                pos_encoding = positional_encoding(self.d_model, self.frames_subclip).unsqueeze(0).to(device)
+                
+                # Embedding inputs
+                embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose) + pos_encoding
+                embedded_obj_pose = self.mlp_obj_pose(obj_pose) + pos_encoding
+                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints) + pos_encoding
+                embedded_obj_trans = self.mlp_obj_trans(obj_trans) + pos_encoding
+                
+                # # Embedding inputs
+                # embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
+                # embedded_obj_pose = self.mlp_obj_pose(obj_pose)
+                # embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
+                # embedded_obj_trans = self.mlp_obj_trans(obj_trans)
 
                 # Print shapes of the embedded tensors
                 # print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
@@ -1572,7 +1602,7 @@ if __name__ == "__main__":
                 trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
                 
                 # Combine the losses
-                total_loss = pose_loss #+ trans_loss
+                total_loss = pose_loss + trans_loss
 
                 # Logging the losses
                 self.log('train_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -1832,7 +1862,7 @@ if __name__ == "__main__":
         # Include now Date03. No processing.
 
         # Define your labels, camera IDs, and frame range
-        cam_ids = [2]#[0, 1, 2, 3]
+        cam_ids = [0, 1, 2, 3]
         #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
         #labels = ["Date06_Sub07_boxmedium"]
         # labels = [
@@ -1865,26 +1895,26 @@ if __name__ == "__main__":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Contains all the logic 
-        # behave_dataset = BehaveDataset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
         
         # Combine wandb.run.name to create a unique name for the saved file
-        #save_file_name = f"{wandb.run.name}behave_cam2_notrace_12.pt"
-        save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
+        save_file_name = f"{wandb.run.name}behave_cam0123_notrace_offset.pt"
+        #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
 
         # Define the local path where the data will be saved
         data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         full_save_path = os.path.join(data_file_path, save_file_name)
 
-        # data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
+        data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
 
-        # # Save the data module locally
-        # with open(full_save_path, 'wb') as f:
-        #     pickle.dump(data_module, f)
+        # Save the data module locally
+        with open(full_save_path, 'wb') as f:
+            pickle.dump(data_module, f)
         
         # Load the data
         with open(full_save_path, 'rb') as f:
             data_module = pickle.load(f)
-
+ 
         #breakpoint()
         print("Dataset loaded", flush=True)
         #########################################################################################################################
@@ -1897,11 +1927,12 @@ if __name__ == "__main__":
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
 
         #Load the state dict from the checkpoint into the model
-        checkpoint = torch.load(model_path, map_location=device)
-        model_combined.load_state_dict(checkpoint)
+        # checkpoint = torch.load(model_path, map_location=device)
+        # model_combined.load_state_dict(checkpoint)
         #model_combined.to(device)
         wandb_logger = WandbLogger()
-        wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients
+        #wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients
+        wandb_logger.watch(model_combined, log_freq=10)  # Log model weights and gradients
         # Initialize Trainer
         print("\nTraining\n", flush=True)
         trainer = pl.Trainer(max_epochs=wandb.config.epochs, logger=wandb_logger, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)

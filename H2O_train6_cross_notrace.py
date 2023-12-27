@@ -1365,15 +1365,15 @@ if __name__ == "__main__":
 
             def train_dataloader(self):
                 train_dataset = Subset(self.dataset, self.train_indices)
-                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=2)
+                return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False, drop_last=True, num_workers=0)
 
             def val_dataloader(self):
                 val_dataset = Subset(self.dataset, self.val_indices)
-                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
+                return DataLoader(val_dataset, batch_size=self.batch_size, drop_last=True, num_workers=0)
 
             def test_dataloader(self):
                 test_dataset = Subset(self.dataset, self.test_indices)
-                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=2)
+                return DataLoader(test_dataset, batch_size=self.batch_size, drop_last=True, num_workers=0)
 
 
         def axis_angle_loss(pred, true):
