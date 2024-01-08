@@ -1524,10 +1524,10 @@ if __name__ == "__main__":
                     return (data - mean) / std
                 
                 # Normalize the batched data during traing. Trans only for now.
-                smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-6
-                smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-0
-                obj_trans_mean = torch.ones(obj_trans.size()) * 1e-6
-                obj_trans_std = torch.ones(obj_trans.size()) * 1e-0
+                smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-4
+                smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-1
+                obj_trans_mean = torch.ones(obj_trans.size()) * 1e-4
+                obj_trans_std = torch.ones(obj_trans.size()) * 1e-1
                 
                 norm_smpl_joints = normalize_data(smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
                 norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
@@ -1700,10 +1700,10 @@ if __name__ == "__main__":
                     return (data - mean) / std
                 
                 # Normalize the batched data during traing. Trans only for now.
-                smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-6
-                smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-0
-                obj_trans_mean = torch.ones(obj_trans.size()) * 1e-6
-                obj_trans_std = torch.ones(obj_trans.size()) * 1e-0
+                smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-4
+                smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-1
+                obj_trans_mean = torch.ones(obj_trans.size()) * 1e-4
+                obj_trans_std = torch.ones(obj_trans.size()) * 1e-1
                 
                 norm_smpl_joints = normalize_data(smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
                 norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
@@ -1962,9 +1962,9 @@ if __name__ == "__main__":
         cam_ids = [2]#[0, 1, 2, 3]
         #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
         #labels = ["Date06_Sub07_boxmedium"]
-        # labels = [
-        #     "Date01_Sub01_boxmedium_hand",
-        #     "Date03_Sub03_boxmedium"]
+        labels = [
+            "Date01_Sub01_boxmedium_hand",
+             "Date03_Sub03_boxmedium"]
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
         #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
@@ -1981,7 +1981,7 @@ if __name__ == "__main__":
         #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         # ]
 
-        #print("\nTraining on:", labels, flush=True)
+        print("\nTraining on:", labels, flush=True)
         frames_subclip = 12 # 115/12 = 9
         masked_frames = 4
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
@@ -1993,11 +1993,11 @@ if __name__ == "__main__":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Contains all the logic 
-        # behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
         
         # Combine wandb.run.name to create a unique name for the saved file
-        #save_file_name = f"{wandb.run.name}_test.pt"
-        save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
+        save_file_name = f"{wandb.run.name}_test.pt"
+        #save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
         #save_file_name = f"twilight-yogurt-3045cross_att_12_4behave_cam0123_notrace_offset.pt"
         #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
 
@@ -2005,65 +2005,66 @@ if __name__ == "__main__":
         data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         full_save_path = os.path.join(data_file_path, save_file_name)
 
-        # data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
+        data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
 
         # # Save the data module locally
         # with open(full_save_path, 'wb') as f:
         #     pickle.dump(data_module, f)
         
-        # Load the data
-        with open(full_save_path, 'rb') as f:
-            data_module = pickle.load(f)
+        # # Load the data
+        # with open(full_save_path, 'rb') as f:
+        #     data_module = pickle.load(f)
  
         #breakpoint()
-        # # Analysis of the distribution
-        # train_loader = data_module.train_dataloader()
+        # Analysis of the distribution
+        train_loader = data_module.train_dataloader()
 
-        # items = [[], [], [], []]
-        # means = [[], [], [], []]
-        # medians = [[], [], [], []]
-        # std_devs = [[], [], [], []]
-        # scene = None
+        items = [[], [], [], []]
+        means = [[], [], [], []]
+        medians = [[], [], [], []]
+        std_devs = [[], [], [], []]
+        scene = None
 
-        # for batch in train_loader:
+        for batch in train_loader:
             
-        #     if scene is None:
-        #         scene = batch[1][0]
+            if scene is None:
+                scene = batch[1][0]
 
-        #     if scene == batch[1][0]:
+            if scene == batch[1][0]:
 
-        #         for item in range(4):
-        #             for serie in batch[0][item]:
-        #                 items[item].append(serie.numpy())
+                for item in range(4):
+                    for serie in batch[0][item]:
+                        # undo the batch, and append
+                        items[item].append(serie.numpy())
 
-        #     if scene != batch[1][0]: 
+            if scene != batch[1][0]: 
 
-        #         for item in [2,3]:   
-        #             item_array = np.array(items[item])
-        #             mean_value = np.mean(item_array, axis=0)
-        #             median_value = np.median(item_array, axis=0)
-        #             std_dev = np.std(item_array, axis=0)
+                for item in [2,3]:   
+                    item_array = np.array(items[item])
+                    mean_value = np.mean(item_array, axis=0)
+                    median_value = np.median(item_array, axis=0)
+                    std_dev = np.std(item_array, axis=0)
 
-        #             print(f"Scene {scene}, item {item}, \nMean: \n{mean_value}, \nMedian: \n{median_value}, \nStd Deviation: \n{std_dev}", flush=True)
+                    print(f"Scene {scene}, item {item}, \nMean: \n{mean_value}, \nMedian: \n{median_value}, \nStd Deviation: \n{std_dev}", flush=True)
                 
-        #             means[item].append(mean_value)
-        #             medians[item].append(median_value)
-        #             std_devs[item].append(std_dev)
+                    means[item].append(mean_value)
+                    medians[item].append(median_value)
+                    std_devs[item].append(std_dev)
                 
-        #         # Reset for the next scene
-        #         items = [[], [], [], []]
-        #         scene = batch[1][0]
+                # Reset for the next scene
+                items = [[], [], [], []]
+                scene = batch[1][0]
 
-        # for item in [2,3]:   
-        #     means_array = np.array(means)
-        #     medians_array = np.array(medians)
-        #     std_devs_array = np.array(std_devs)
+        for item in [2,3]:   
+            means_array = np.array(means)
+            medians_array = np.array(medians)
+            std_devs_array = np.array(std_devs)
 
-        #     mean_mean = np.mean(means_array, axis=0)
-        #     mean_median = np.mean(medians_array, axis=0)
-        #     mean_std_dev = np.mean(std_devs_array, axis=0)
+            mean_mean = np.mean(means_array, axis=0)
+            mean_median = np.mean(medians_array, axis=0)
+            mean_std_dev = np.mean(std_devs_array, axis=0)
 
-        #     print(f"\n\n\n Overall, item {item}, \nMean: \n{mean_mean}, \nMedian: \n{mean_median}, \nStd Deviation: \n{mean_std_dev}", flush=True)
+            print(f"\n\n\n Overall, item {item}, \nMean: \n{mean_mean}, \nMedian: \n{mean_median}, \nStd Deviation: \n{mean_std_dev}", flush=True)
     
 
         print("Dataset loaded", flush=True)
