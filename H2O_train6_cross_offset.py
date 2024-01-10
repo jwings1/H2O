@@ -146,7 +146,7 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER
             },
-            #mode="offline"
+            mode="offline"
         )
 
         def load_intrinsics_and_distortion(camera_id, base_path):
@@ -1614,25 +1614,25 @@ if __name__ == "__main__":
 
                 def axis_angle_to_rotation_matrix(axis_angle):
                     # Ensure axis_angle is a batched input
-                    batch_size, _ = axis_angle.shape
+                    batch_size, masked_frames, _ = axis_angle.shape
                     
                     # Normalize the axis part of the axis-angle vector
                     axis = F.normalize(axis_angle, dim=-1)
                     angle = torch.norm(axis_angle, dim=-1, keepdim=True)
                     
                     # Get the skew-symmetric cross-product matrix of the axis
-                    skew = torch.zeros((batch_size, 3, 3), device=axis_angle.device)
-                    skew[:, 0, 1] = -axis[:, 2]
-                    skew[:, 1, 0] = axis[:, 2]
-                    skew[:, 0, 2] = axis[:, 1]
-                    skew[:, 2, 0] = -axis[:, 1]
-                    skew[:, 1, 2] = -axis[:, 0]
-                    skew[:, 2, 1] = axis[:, 0]
+                    skew = torch.zeros((batch_size, masked_frames, 3, 3), device=axis_angle.device)
+                    skew[:, :, 0, 1] = -axis[:, :, 2]
+                    skew[:, :, 1, 0] = axis[:, :, 2]
+                    skew[:, :, 0, 2] = axis[:, :, 1]
+                    skew[:, :, 2, 0] = -axis[:, :, 1]
+                    skew[:, :, 1, 2] = -axis[:, :, 0]
+                    skew[:, :, 2, 1] = axis[:, :, 0]
                     
                     # Rodrigues' rotation formula
-                    I = torch.eye(3, device=axis_angle.device).unsqueeze(0).expand(batch_size, -1, -1)
-                    sin_angle = torch.sin(angle).unsqueeze(-1)  # Shape (batch_size, 1, 1)
-                    cos_angle = (1 - torch.cos(angle)).unsqueeze(-1)  # Shape (batch_size, 1, 1)
+                    I = torch.eye(3, device=axis_angle.device).unsqueeze(0).unsqueeze(0).expand(batch_size, masked_frames, -1, -1)
+                    sin_angle = torch.sin(angle).unsqueeze(-1)  # Shape (batch_size, masked_frames, 1, 1)
+                    cos_angle = (1 - torch.cos(angle)).unsqueeze(-1)  # Shape (batch_size, masked_frames, 1, 1)
                     R = I + sin_angle * skew + cos_angle * torch.matmul(skew, skew)
 
                     return R
@@ -1656,7 +1656,8 @@ if __name__ == "__main__":
 
                 # Compute L2 loss (MSE) for both pose and translation
                 #pose_loss = axis_angle_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:].reshape(-1, 3), obj_pose[:,-self.masked_frames:,:].reshape(-1, 3))
+                #pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:].reshape(-1, 3), obj_pose[:,-self.masked_frames:,:].reshape(-1, 3))
+                pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
                 trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
                 
                 # Pose weights
@@ -1732,13 +1733,14 @@ if __name__ == "__main__":
                 # Compute L2 loss (MSE) for both pose and translation
                 #smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
                 #smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
-                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
+                pose_loss = F.mse_loss(predicted_obj_pose[:,-self.masked_frames,:], obj_pose[:,-self.masked_frames,:])
+                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames,:], obj_trans[:,-self.masked_frames,:])
                 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
 
-                self.validation_losses.append(total_loss)
+                #self.validation_losses.append(total_loss)
+                self.validation_losses.append(trans_loss)
 
                 # Log the losses. The logging method might differ slightly based on your framework
                 self.log('val_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -1962,9 +1964,9 @@ if __name__ == "__main__":
         cam_ids = [2]#[0, 1, 2, 3]
         #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
         #labels = ["Date06_Sub07_boxmedium"]
-        # labels = [
-        #     "Date01_Sub01_boxmedium_hand",
-        #     "Date03_Sub03_boxmedium"]
+        labels = [
+            "Date01_Sub01_boxmedium_hand"]#
+        #    "Date03_Sub03_boxmedium"]
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
         #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
@@ -1993,11 +1995,12 @@ if __name__ == "__main__":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Contains all the logic 
-        # behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
         
         # Combine wandb.run.name to create a unique name for the saved file
-        #save_file_name = f"{wandb.run.name}_test.pt"
-        save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
+        #save_file_name = f"{wandb.run.name}_overfit_test.pt"
+        save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
+        #save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
         #save_file_name = f"twilight-yogurt-3045cross_att_12_4behave_cam0123_notrace_offset.pt"
         #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
 
@@ -2015,7 +2018,7 @@ if __name__ == "__main__":
         with open(full_save_path, 'rb') as f:
             data_module = pickle.load(f)
  
-        #breakpoint()
+        # #breakpoint()
         # # Analysis of the distribution
         # train_loader = data_module.train_dataloader()
 
