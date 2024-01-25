@@ -1984,7 +1984,7 @@ if __name__ == "__main__":
         # ]
 
         #print("\nTraining on:", labels, flush=True)
-        frames_subclip = 12 # 115/12 = 9
+        frames_subclip = 36 # 115/12 = 9
         masked_frames = 4
         selected_keys = [SMPL_pose, SMPL_joints, OBJ_pose, OBJ_trans]  # Add other keys as needed
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
@@ -1998,8 +1998,8 @@ if __name__ == "__main__":
         behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
         
         # Combine wandb.run.name to create a unique name for the saved file
-        #save_file_name = f"{wandb.run.name}_overfit_test.pt"
-        save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
+        save_file_name = f"{wandb.run.name}_overfit_test.pt"
+        #save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
         #save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
         #save_file_name = f"twilight-yogurt-3045cross_att_12_4behave_cam0123_notrace_offset.pt"
         #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
@@ -2008,11 +2008,11 @@ if __name__ == "__main__":
         data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         full_save_path = os.path.join(data_file_path, save_file_name)
 
-        # data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
+        data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
 
-        # # Save the data module locally
-        # with open(full_save_path, 'wb') as f:
-        #     pickle.dump(data_module, f)
+        # Save the data module locally
+        with open(full_save_path, 'wb') as f:
+            pickle.dump(data_module, f)
         
         # Load the data
         with open(full_save_path, 'rb') as f:
@@ -2082,8 +2082,8 @@ if __name__ == "__main__":
         model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_1e-2-0_epoch_119.pt"
 
         #Load the state dict from the checkpoint into the model
-        checkpoint = torch.load(model_path, map_location=device)
-        model_combined.load_state_dict(checkpoint)
+        # checkpoint = torch.load(model_path, map_location=device)
+        # model_combined.load_state_dict(checkpoint)
         model_combined.to(device)
         wandb_logger = WandbLogger()
         #wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients

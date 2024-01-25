@@ -734,8 +734,9 @@ def main():
     # Set scene
     #identifiers = ["Date03_Sub03_tablesmall_lift", "Date03_Sub03_tablesquare_move" ,"Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
     #"Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
-    identifiers = ["Date03_Sub03_boxmedium","Date03_Sub03_stool_lift","Date03_Sub03_stool_sit", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxlarge",\
-    "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
+    identifiers = ["Date03_Sub05_suitcase", "Date01_Sub01_boxmedium_hand"]
+   # ["Date03_Sub03_boxmedium","Date03_Sub03_stool_lift","Date03_Sub03_stool_sit", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxlarge",\
+    #"Date03_Sub05_tablesquare","Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
     
     for identifier in identifiers:
 
@@ -788,7 +789,10 @@ def main():
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cosmic-morning-3057cross_att_12_4_6D_loss_weighted_epoch_119.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_robust-smoke-3015cross_att_12_4_axis_angle_loss_from_checkpoint_pose_only_epoch_3.pt"
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_deft-mountain-3079cross_att_12_4_norm_cam2_offset_norm_1e-5e-0_epoch_4.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_deft-mountain-3079cross_att_12_4_norm_cam2_offset_norm_1e-5e-0_epoch_4.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_dulcet-planet-3081cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_119.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_celestial-river-3083cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_119.pt"
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_peachy-snow-3085cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_14.pt"
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint)
 
@@ -898,6 +902,7 @@ def main():
         prev_obj_pose_offset = None
         prev_obj_trans_offset = None
         items = [None] * 4
+        total_trans = []
         # Process interpolated frames
         #for idx in range(0,len(cam_data[2]),masked_frames):
         # make a masked_frames step, only if prev_ variables are set to None
@@ -905,9 +910,7 @@ def main():
         last_frame = min(len(cam_data[2]) - frames_subclip +1, len(cam_data[2]))
         for idx in range(0,last_frame, 1): 
             images = []
-            total_trans = []
             for cam_id in [2]:
-
                 if idx == 0:
                     current_abs_obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_pose']
                     current_abs_obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_trans']
@@ -996,8 +999,7 @@ def main():
                         items.append(stacked_tensors)
 
                 # SMPL joints
-                
-                items[1] = items[1].reshape(-1,12,72)
+                items[1] = items[1].reshape(frames_subclip,72)
                 
                 # Normalize data
 
@@ -1005,9 +1007,9 @@ def main():
                     return (data - mean) / std
                 
                 # Normalize the batched data during traing. Trans only for now.
-                smpl_joints_mean = torch.ones(items[1].size()) * 1e-5
+                smpl_joints_mean = torch.ones(items[1].size()) * 1e-6
                 smpl_joints_std = torch.ones(items[1].size()) * 1e-0
-                obj_trans_mean = torch.ones(items[3].size()) * 1e-5
+                obj_trans_mean = torch.ones(items[3].size()) * 1e-6
                 obj_trans_std = torch.ones(items[3].size()) * 1e-0
                 
                 items[1] = normalize_data(items[1].to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
@@ -1185,7 +1187,7 @@ def main():
             auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), max_th) * 100
             auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), max_th) * 100
             cd_mean = sum(all_CD_values[cam_id]) / len(all_CD_values[cam_id])
-            mean_total_trans_loss = sum(total_trans_loss) / len(total_trans_loss)
+            mean_total_trans_loss = sum(total_trans) / len(total_trans)
 
             print(f"AUC for scene {identifier}, camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD [m]: {cd_mean:.2f}, MSE trans [m]: {mean_total_trans_loss}", flush=True)
 

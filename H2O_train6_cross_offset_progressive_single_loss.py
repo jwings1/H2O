@@ -56,7 +56,7 @@ def create_parser():
     parser.add_argument('--fourth_option', choices=['obj_trans', 'norm_obj_trans', 'enc_norm_obj_trans'], help='Specify the fourth option.')
     parser.add_argument('--scene', default=['scene'],help='Include scene in the options.')
     parser.add_argument('--learning_rate', nargs='+', type=float, default=[1e-4])
-    parser.add_argument('--epochs', nargs='+', type=int, default=[120])
+    parser.add_argument('--epochs', nargs='+', type=int, default=[1200])
     parser.add_argument('--batch_size', nargs='+', type=int, default=[16])
     parser.add_argument('--dropout_rate', nargs='+', type=float, default=[0.00])
     parser.add_argument('--alpha', nargs='+', type=float, default=[1])
@@ -146,7 +146,7 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER
             },
-            mode="offline"
+            #mode="offline"
         )
 
         def load_intrinsics_and_distortion(camera_id, base_path):
@@ -1486,11 +1486,11 @@ if __name__ == "__main__":
 
                 #Initialize tgt_mask
                 #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
-                tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
+                tgt_mask = torch.zeros(1 * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
                 #tgt_mask = torch.zeros(48, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
 
                 # Iterate to set the last self.masked_frames rows of the upper diagonal matrix to True
-                for i in range(wandb.config.batch_size * self.num_heads):
+                for i in range(1 * self.num_heads):
                     for row in range(self.frames_subclip - self.masked_frames, self.frames_subclip):
                             tgt_mask[i, row, row:] = True  # Set the elements on and above the diagonal to True
 
@@ -1511,107 +1511,6 @@ if __name__ == "__main__":
 
             def training_step(self, cam_data):
                 
-                # Backward pass and optimization
-                optimizer = self.optimizers()
-                optimizer.zero_grad()
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-                smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
-                smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
-
-                # Normalization function
-                def normalize_data(data, mean, std):
-                    return (data - mean) / std
-                
-                # Normalize the batched data during traing. Trans only for now.
-                smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-2
-                smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-0
-                obj_trans_mean = torch.ones(obj_trans.size()) * 1e-2
-                obj_trans_std = torch.ones(obj_trans.size()) * 1e-0
-                
-                norm_smpl_joints = normalize_data(smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
-                norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
-                
-                masked_obj_pose = obj_pose.clone()
-                masked_obj_trans = norm_obj_trans.clone()
-
-                # Move each tensor to the specified device
-                smpl_pose = smpl_pose.to(device)
-                smpl_joints = norm_smpl_joints.to(device)
-                masked_obj_pose = masked_obj_pose.to(device)
-                masked_obj_trans = masked_obj_trans.to(device)
-                obj_pose = obj_pose.to(device)
-                obj_trans = norm_obj_trans.to(device)
-
-                # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
-                
-                # Custome loss
-                def axis_angle_loss(pred, true):
-                    # Assuming pred and true are [batch_size, 3] tensors where
-                    # the last dimension contains the [x, y, z] coordinates of the axis-angle vector
-                    
-                    # Normalize axis vectors
-                    pred_axis = F.normalize(pred, dim=-1)
-                    true_axis = F.normalize(true, dim=-1)
-                    
-                    # Calculate the cosine similarity between axes
-                    cos_sim = F.cosine_similarity(pred_axis, true_axis, dim=-1)
-                    
-                    # Calculate angle magnitudes
-                    pred_angle = torch.norm(pred, dim=-1)
-                    true_angle = torch.norm(true, dim=-1)
-                    
-                    # Calculate circular distance for angles
-                    angle_diff_options = torch.stack([
-                        torch.abs(pred_angle - true_angle),
-                        torch.abs(pred_angle - true_angle + 2 * np.pi),
-                        torch.abs(pred_angle - true_angle - 2 * np.pi)
-                    ], dim=-1)
-                    
-                    angle_diff, _ = torch.min(angle_diff_options, dim=-1)
-
-                    # Combine the two losses
-                    # You can weight these terms as needed
-                    loss = 1 - cos_sim + angle_diff
-
-                    return torch.mean(loss)
-
-                # def axis_angle_to_quaternion(axis_angle):
-                #     """Convert axis-angle representation to quaternion."""
-                #     angle = torch.norm(axis_angle, dim=-1, keepdim=True)
-                #     axis = axis_angle / (angle + 1e-6)  # Avoid division by zero
-
-                #     w = torch.cos(angle / 2)
-                #     xyz = axis * torch.sin(angle / 2)
-
-                #     quaternion = torch.cat([w, xyz], dim=-1)
-                #     return quaternion
-
-                # def quaternion_distance(q1, q2):
-                #     """Compute the distance between two quaternions."""
-                #     dot_product = torch.sum(q1 * q2, dim=-1)
-                #     dot_product = torch.clamp(dot_product, min=-1.0, max=1.0)  # Numerical stability
-                #     distance = 2 * torch.acos(torch.abs(dot_product))  # Absolute value for handling antipodal quaternions
-                #     return distance
-
-                # def correct_for_double_cover(predicted_quat, target_quat):
-                #     """Correct for the double cover issue in quaternions."""
-                #     dot_product = torch.sum(predicted_quat * target_quat, dim=-1, keepdim=True)
-                #     corrected_quat = torch.where(dot_product < 0, -predicted_quat, predicted_quat)
-                #     return corrected_quat
-
-                # # Convert axis-angle to quaternion
-                # predicted_quaternions = axis_angle_to_quaternion(predicted_obj_pose[:,-self.masked_frames:,:])
-                # target_quaternions = axis_angle_to_quaternion(obj_pose[:,-self.masked_frames:,:])
-
-                # # Apply double cover correction
-                # corrected_predicted_quaternions = correct_for_double_cover(predicted_quaternions, target_quaternions)
-
-                # # Compute quaternion distance as loss with the correction
-                # loss = quaternion_distance(corrected_predicted_quaternions, target_quaternions)
-                # pose_loss = torch.mean(loss)
-
                 def axis_angle_to_rotation_matrix(axis_angle):
                     # Ensure axis_angle is a batched input
                     batch_size, masked_frames, _ = axis_angle.shape
@@ -1653,41 +1552,87 @@ if __name__ == "__main__":
                     # Compute the loss as mean squared error between the two 6D representations
                     loss = F.mse_loss(rot_6d_1, rot_6d_2)
                     return loss
-
-                # Compute L2 loss (MSE) for both pose and translation
-                #pose_loss = axis_angle_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                #pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:].reshape(-1, 3), obj_pose[:,-self.masked_frames:,:].reshape(-1, 3))
-                pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:], obj_pose[:,-self.masked_frames:,:])
-                trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], obj_trans[:,-self.masked_frames:,:])
                 
-                # Pose weights
-                pose_weights = torch.norm(obj_pose, p=1, dim=-2).unsqueeze(1)
-                # Trans weights
-                trans_weights = torch.norm(obj_trans, p=1, dim=-2).unsqueeze(1)
-                # Combine the losses
-                #total_loss = pose_weights * pose_loss + trans_weights * trans_loss
-                total_loss = pose_loss + trans_loss
-                mean_total_loss = torch.mean(total_loss)
+                # Normalization function
+                def normalize_data(data, mean, std):
+                    return (data - mean) / std
+                
+                def unnormalize_data(data, mean, std):
+                    return (data * std) + mean
 
-                # Logging the losses
-                self.log('train_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-                #self.log('train_smpl_pose_loss', smpl_pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-                #self.log('train_smpl_joints_loss', smpl_joints_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-                self.log('train_trans_loss', trans_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-                self.log('mean_train_total_loss', mean_total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                def train_one_instance(smpl_pose, smpl_joints, obj_pose, obj_trans, GT_obj_pose, GT_obj_trans):
 
-                # # Logging the losses to wandb
-                # wandb.log({
-                #     'train_total_loss': total_loss.item(),
-                #     'train_pose_loss': pose_loss.item(),
-                #     #'train_smpl_pose_loss': smpl_pose_loss.item(),
-                #     #'train_smpl_joints_loss': smpl_joints_loss.item(),
-                #     'train_trans_loss': trans_loss.item(),
-                # })
-               
-                self.manual_backward(mean_total_loss)
-                optimizer.step()
+                    optimizer.zero_grad()
+                    
+                    # Normalize the batched data during traing. Trans only for now.
+                    smpl_joints_mean = torch.ones(smpl_joints.size()) * 1e-2
+                    smpl_joints_std = torch.ones(smpl_joints.size()) * 1e-0
+                    obj_trans_mean = torch.ones(obj_trans.size()) * 1e-2
+                    obj_trans_std = torch.ones(obj_trans.size()) * 1e-0
+                    
+                    norm_smpl_joints = normalize_data(smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
+                    norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
+                    
+                    masked_obj_pose = obj_pose.clone()
+                    masked_obj_trans = norm_obj_trans.clone()
 
+                    smpl_pose = smpl_pose.to(device)
+                    smpl_joints = norm_smpl_joints.to(device)
+                    masked_obj_pose = masked_obj_pose.to(device)
+                    masked_obj_trans = masked_obj_trans.to(device)
+                    obj_pose = obj_pose.to(device)
+                    obj_trans = norm_obj_trans.to(device)
+
+                    predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
+                    
+                    GT_obj_pose = GT_obj_pose.unsqueeze(0)
+                    GT_obj_trans = GT_obj_trans.unsqueeze(0)
+                    
+                    pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames,:], GT_obj_pose[:,-self.masked_frames,:])
+                    trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames,:], GT_obj_trans[:,-self.masked_frames,:])
+                    
+                    total_loss = pose_loss + trans_loss
+                    mean_total_loss = torch.mean(total_loss)
+
+                    # Logging the losses
+                    self.log('train_pose_loss', pose_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                    self.log('train_trans_loss', trans_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                    self.log('mean_train_total_loss', mean_total_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+                
+                    self.manual_backward(mean_total_loss)
+                    optimizer.step()
+                    
+                    # Unnormalize
+                    predicted_obj_trans = unnormalize_data(predicted_obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
+                    
+                    return predicted_obj_pose.detach(), predicted_obj_trans.detach()
+                
+                # Backward pass and optimization
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                optimizer = self.optimizers()
+
+                smpl_pose, smpl_joints, GT_obj_pose, GT_obj_trans = cam_data[-2][:]
+                smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
+
+                for i in range(smpl_pose.shape[0]):
+
+                    if i == 0:
+
+                        # The initial window is GT. Dimension reduced.
+                        obj_pose = GT_obj_pose[0].clone()
+                        obj_trans = GT_obj_trans[0].clone()
+                    
+                    # Inputs should be batched
+                    predicted_obj_pose, predicted_obj_trans = train_one_instance(smpl_pose[i], smpl_joints[i], obj_pose, obj_trans, GT_obj_pose[i], GT_obj_trans[i])
+                    
+                    # Update obj_pose, obj_trans. Roll along the window dimension. dim = 3
+
+                    obj_pose = torch.roll(obj_pose, -1, 0)
+                    obj_pose[-masked_frames-1,:] = predicted_obj_pose[:,-masked_frames,:]
+
+                    obj_trans = torch.roll(obj_trans, -1, 0)
+                    obj_trans[-masked_frames-1,:] = predicted_obj_trans[:,-masked_frames,:]
+                
                 return None
 
             def validation_step(self, cam_data, batch_idx):
@@ -1720,8 +1665,39 @@ if __name__ == "__main__":
                 obj_pose = obj_pose.to(device)
                 obj_trans = norm_obj_trans.to(device)
 
-                # Assuming predictions contain the masked_obj_pose and masked_obj_trans
-                predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
+                # # Assuming predictions contain the masked_obj_pose and masked_obj_trans
+                # predicted_obj_pose, predicted_obj_trans = self.forward(smpl_pose, smpl_joints, masked_obj_pose, masked_obj_trans)
+
+                # Assuming smpl_pose, smpl_joints, masked_obj_pose, and masked_obj_trans are batched tensors
+                batch_size = smpl_pose.size(0)
+
+                # Initialize lists to store the results for each instance in the batch
+                predicted_obj_poses = []
+                predicted_obj_transes = []
+
+                # Iterate over each instance in the batch
+                for i in range(batch_size):
+                    # Extract the i-th instance from each tensor
+                    instance_smpl_pose = smpl_pose[i].unsqueeze(0)  # Add batch dimension
+                    instance_smpl_joints = smpl_joints[i].unsqueeze(0)
+                    instance_masked_obj_pose = masked_obj_pose[i].unsqueeze(0)
+                    instance_masked_obj_trans = masked_obj_trans[i].unsqueeze(0)
+
+                    # Forward pass for the single instance
+                    instance_predicted_obj_pose, instance_predicted_obj_trans = self.forward(
+                        instance_smpl_pose, 
+                        instance_smpl_joints, 
+                        instance_masked_obj_pose, 
+                        instance_masked_obj_trans
+                    )
+
+                    # Store the results
+                    predicted_obj_poses.append(instance_predicted_obj_pose)
+                    predicted_obj_transes.append(instance_predicted_obj_trans)
+
+                # Concatenate the results to form a batch again
+                predicted_obj_pose = torch.cat(predicted_obj_poses, dim=0)
+                predicted_obj_trans = torch.cat(predicted_obj_transes, dim=0)
 
                 # Undo normalization
                 
@@ -1738,6 +1714,7 @@ if __name__ == "__main__":
                 
                 # Combine the losses
                 total_loss = pose_loss + trans_loss
+                #total_loss = trans_loss
 
                 #self.validation_losses.append(total_loss)
                 self.validation_losses.append(total_loss)
@@ -1766,7 +1743,7 @@ if __name__ == "__main__":
 
                 # wandb.log({
                 #     'Val Trans+Angle Epoch-Averaged Batch-Averaged Average 4Cameras': avg_val_loss.item()
-                #     })
+                #     })l
                 self.log('avg_val_loss', avg_val_loss, prog_bar=True, logger=True)
                 wandb.log({"Learning Rate": self.optimizer.param_groups[0]['lr']})
                 if avg_val_loss < self.best_avg_loss_val:
@@ -1822,19 +1799,19 @@ if __name__ == "__main__":
                 #     'frequency': 1
                 # }
 
-                scheduler = {
-                'scheduler': CustomCyclicLR(optimizer, base_lr=1e-7, max_lr=5e-3, step_size=1, mode='exp_range'),
-                'interval': 'epoch',  # step-based updates i.e. batch
-                #'monitor' : 'avg_val_loss',
-                'name': 'custom_clr'
-                }
-
                 # scheduler = {
-                #     'scheduler': CustomCosineLR(optimizer, T_max=100, eta_min=1e-7),
-                #     'interval': 'step',  # epoch-based updates
-                #     'monitor' : 'avg_val_loss',
-                #     'name': 'custom_cosine_lr'
+                # 'scheduler': CustomCyclicLR(optimizer, base_lr=1e-7, max_lr=5e-3, step_size=1, mode='exp_range'),
+                # 'interval': 'epoch',  # step-based updates i.e. batch
+                # #'monitor' : 'avg_val_loss',
+                # 'name': 'custom_clr'
                 # }
+
+                scheduler = {
+                    'scheduler': CustomCosineLR(optimizer, T_max=100, eta_min=1e-7),
+                    'interval': 'step',  # epoch-based updates
+                    'monitor' : 'avg_val_loss',
+                    'name': 'custom_cosine_lr'
+                }
 
                 self.optimizer = optimizer  # store optimizer as class variable for logging learning rate
                 self.lr_scheduler = scheduler['scheduler']  # store scheduler as class variable for updating in on_validation_epoch_end
@@ -1855,7 +1832,7 @@ if __name__ == "__main__":
             # Load the saved data
             with open(data_file_path, 'rb') as f:
                 dataset = pickle.load(f)
-        else:
+        elif False:
             # Create a dataset
 
             # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
@@ -1867,11 +1844,11 @@ if __name__ == "__main__":
             # Need to create pickles for non box
             #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
             processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
-            # labels_existing = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
-            # #labels = labels[:2]
-            # # date = "Date07"
-            # # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
-            # #print("Processing only ", date)
+            #labels_existing = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
+            #labels = labels[:2]
+            # date = "Date07"
+            # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
+            #print("Processing only ", date)
 
             # labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
             # "Date01_Sub01_boxmedium_hand",
@@ -1884,93 +1861,209 @@ if __name__ == "__main__":
             # "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
             # "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
             # ]
+
+            # labels = [
+            #     'Date03_Sub03_yogamat',
+            #     'Date03_Sub03_boxlarge',
+            #     'Date03_Sub03_boxlong',
+            #     'Date03_Sub03_boxmedium',
+            #     'Date03_Sub03_boxsmall',
+            #     'Date03_Sub03_boxtiny',
+            #     'Date03_Sub03_chairblack_hand',
+            #     'Date03_Sub03_chairblack_lift',
+            #     'Date03_Sub03_chairblack_sit',
+            #     'Date03_Sub03_chairblack_sitstand',
+            #     'Date03_Sub03_chairwood_hand',
+            #     'Date03_Sub03_tablesquare_sit',
+            #     'Date03_Sub03_toolbox',
+            #     'Date03_Sub03_trashbin',
+            #     'Date03_Sub04_boxlarge',
+            #     'Date03_Sub04_boxlong',
+            #     'Date03_Sub04_boxmedium',
+            #     'Date03_Sub04_boxsmall',
+            #     'Date03_Sub04_boxtiny',
+            #     'Date03_Sub04_chairblack_hand',
+            #     'Date03_Sub04_tablesmall_lean',
+            #     'Date03_Sub04_tablesmall_lift',
+            #     'Date03_Sub04_tablesquare_hand',
+            #     'Date03_Sub04_tablesquare_lift',
+            #     'Date03_Sub04_tablesquare_sit',
+            #     'Date03_Sub04_toolbox',
+            #     'Date03_Sub04_trashbin',
+            #     'Date03_Sub04_yogamat',
+            #     'Date03_Sub05_boxlarge',
+            #     'Date03_Sub05_boxlong',
+            #     'Date03_Sub05_boxmedium',
+            #     'Date03_Sub05_boxsmall',
+            #     'Date03_Sub05_boxtiny',
+            #     'Date03_Sub05_toolbox',
+            #     'Date03_Sub05_trashbin',
+            #     'Date03_Sub05_yogamat'
+            # ]
+
+            labels = [
+                'Date03_Sub04_backpack_hand',
+                'Date03_Sub04_chairblack_liftreal',
+                'Date05_Sub06_suitcase_hand',
+                'Date05_Sub06_chairwood_sit',
+                'Date03_Sub05_chairwood_part2',
+                'Date03_Sub04_yogaball_play',
+                'Date03_Sub04_boxtiny',
+                'Date05_Sub06_trashbin',
+                'Date05_Sub06_toolbox',
+                'Date03_Sub05_plasticcontainer',
+                'Date03_Sub04_backpack_back',
+                'Date03_Sub05_tablesquare',
+                'Date03_Sub04_chairwood_lift',
+                'Date03_Sub05_yogaball',
+                'Date03_Sub04_stool_move',
+                'Date03_Sub04_plasticcontainer_lift',
+                'Date03_Sub04_chairwood_hand',
+                'Date05_Sub06_tablesmall_lean',
+                'Date02_Sub02_monitor_move2',
+                'Date03_Sub04_yogaball_sit',
+                'Date05_Sub06_plasticcontainer',
+                'Date05_Sub06_chairwood_lift',
+                'Date03_Sub04_chairblack_sit',
+                'Date05_Sub06_yogaball_sit',
+                'Date06_Sub07_yogamat',
+                'Date05_Sub06_tablesquare_sit',
+                'Date03_Sub05_backpack',
+                'Date06_Sub07_tablesquare_sit',
+                'Date03_Sub04_chairwood_sit',
+                'Date05_Sub06_yogaball_play',
+                'Date02_Sub02_toolbox_part2',
+                'Date05_Sub06_monitor_hand',
+                'Date06_Sub07_yogaball_sit',
+                'Date05_Sub06_suitcase_lift',
+                'Date03_Sub05_chairblack',
+                'Date05_Sub06_chairwood_hand',
+                'Date03_Sub04_stool_sit',
+                'Date03_Sub05_chairwood',
+                'Date03_Sub04_boxtiny_part2',
+                'Date06_Sub07_tablesmall_lean',
+                'Date03_Sub04_tablesmall_hand',
+                'Date03_Sub05_stool',
+                'Date02_Sub02_monitor_move',
+                'Date04_Sub05_monitor_part2',
+                'Date06_Sub07_tablesquare_lift',
+                'Date06_Sub07_trashbin',
+                'Date06_Sub07_toolbox',
+                'Date06_Sub07_tablesmall_lift',
+                'Date03_Sub05_suitcase',
+                'Date05_Sub06_stool_lift',
+                'Date06_Sub07_tablesmall_move',
+                'Date05_Sub06_tablesquare_lift',
+                'Date01_Sub01_yogamat_hand',
+                'Date06_Sub07_yogaball_play',
+                'Date05_Sub06_monitor_move',
+                'Date03_Sub04_suitcase_lift',
+                'Date05_Sub06_yogamat',
+                'Date03_Sub03_chairblack_sitstand',
+                'Date05_Sub06_tablesmall_hand',
+                'Date03_Sub04_suitcase_ground',
+                'Date06_Sub07_tablesquare_move',
+                'Date03_Sub05_monitor',
+                'Date03_Sub04_yogaball_play2',
+                'Date05_Sub06_stool_sit',
+                'Date05_Sub06_tablesquare_move',
+                'Date01_Sub01_plasticcontainer',
+                'Date03_Sub05_tablesmall',
+                'Date03_Sub04_monitor_hand',
+                'Date06_Sub07_suitcase_move',
+                'Date04_Sub05_monitor_sit',
+                'Date02_Sub02_toolbox',
+                'Date03_Sub04_backpack_hug',
+                'Date03_Sub04_monitor_move',
+                'Date05_Sub06_tablesmall_lift'
+            ]
             
-            #print(labels, flush=True)
+            print(labels, flush=True)
             #breakpoint()
-            # dataset = []
+            dataset = []
 
             
-            # for label in labels:
-            #     if label not in labels_existing:
-            #         print("Processing label:", label, flush=True)
-            #         selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
-            #         selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
+            for label in labels:
+                if True: #label not in labels_existing:
+                    print("Processing label:", label, flush=True)
+                    selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
+                    selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
 
-            #         print("Object file path:", selected_file_path_obj)
-            #         print("SMPL file path:", selected_file_path_smpl)
+                    print("Object file path:", selected_file_path_obj,flush=True)
+                    print("SMPL file path:", selected_file_path_smpl,flush=True)
 
-            #         all_data_frames = []
+                    all_data_frames = []
 
-            #         with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
-            #             print("Loading object data")
-            #             obj_pose = data_obj['angles']
-            #             obj_trans = data_obj['trans']
-            #             timestamps = data_obj['frame_times']
-            #             print("Object data loaded. Shape:", obj_pose.shape)
+                    with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
+                        print("Loading object data",flush=True)
+                        obj_pose = data_obj['angles']
+                        obj_trans = data_obj['trans']
+                        timestamps = data_obj['frame_times']
+                        print("Object data loaded. Shape:", obj_pose.shape,flush=True)
 
-            #         with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
-            #             print("Loading SMPL data")
-            #             pose = data_smpl['poses'][:,:72]  # SMPL model
-            #             trans = data_smpl['trans']
-            #             betas = data_smpl['betas']
-            #             print("SMPL data loaded. Shape:", pose.shape)
+                    with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
+                        print("Loading SMPL data",flush=True)
+                        pose = data_smpl['poses'][:,:72]  # SMPL model
+                        trans = data_smpl['trans']
+                        betas = data_smpl['betas']
+                        print("SMPL data loaded. Shape:", pose.shape,flush=True)
 
-            #         for idx in range(min(trans.shape[0], obj_trans.shape[0])):
-            #             #print(f"Processing frame {idx}")
-            #             frame_data = {}
-            #             obj_name = label.split('_')[2]
-            #             frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
-            #             frame_data['scene'] = label
-            #             frame_data['date'] = label.split('_')[0]
-            #             frame_data['pose'] = pose[idx,:]
-            #             frame_data['trans'] = trans[idx,:]
-            #             frame_data['betas'] = betas[idx,:]
-            #             frame_data['obj_pose'] = obj_pose[idx,:]
-            #             frame_data['obj_trans'] = obj_trans[idx,:]
+                    for idx in range(min(trans.shape[0], obj_trans.shape[0])):
+                        #print(f"Processing frame {idx}")
+                        frame_data = {}
+                        obj_name = label.split('_')[2]
+                        frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
+                        frame_data['scene'] = label
+                        frame_data['date'] = label.split('_')[0]
+                        frame_data['pose'] = pose[idx,:]
+                        frame_data['trans'] = trans[idx,:]
+                        frame_data['betas'] = betas[idx,:]
+                        frame_data['obj_pose'] = obj_pose[idx,:]
+                        frame_data['obj_trans'] = obj_trans[idx,:]
 
-            #             all_data_frames.append(frame_data)
+                        all_data_frames.append(frame_data)
 
-            #         # Assuming interpolate_frames and project_frames are defined elsewhere in your script
-            #         all_data_frames_int = interpolate_frames(all_data_frames, N)
-            #         print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int))
-            #         del all_data_frames
+                    # Assuming interpolate_frames and project_frames are defined elsewhere in your script
+                    all_data_frames_int = interpolate_frames(all_data_frames, N)
+                    print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int),flush=True)
+                    del all_data_frames
 
-            #         objects = project_frames(all_data_frames_int, timestamps, N)
-            #         print("Projection done. Length of projected frames:", len(objects))
-            #         del all_data_frames_int
+                    objects = project_frames(all_data_frames_int, timestamps, N)
+                    print("Projection done. Length of projected frames:", len(objects),flush=True)
+                    del all_data_frames_int
 
-            #         for j in range(len(objects)):
-            #             for k in range(len(objects[j])):
-            #                 a = objects[j][k]
-            #                 for key in a.keys():
-            #                     if hasattr(a[key], 'numpy'):
-            #                         objects[j][k][key] = a[key].numpy()
-            #                     else:
-            #                         objects[j][k][key] = a[key]
+                    for j in range(len(objects)):
+                        for k in range(len(objects[j])):
+                            a = objects[j][k]
+                            for key in a.keys():
+                                if hasattr(a[key], 'numpy'):
+                                    objects[j][k][key] = a[key].numpy()
+                                else:
+                                    objects[j][k][key] = a[key]
 
 
-            #         data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy/{label}.pkl'
-            #         print(f"Saving data to {data_file_path}", flush=True)
-            #         with open(data_file_path, 'wb') as f:
-            #             pickle.dump(objects, f)
-            #         print(f"Saved data for {label} to {data_file_path}", flush=True)
-            #         #breakpoint()
-            #         del objects
-            #         gc.collect()
+                    data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy/{label}.pkl'
+                    print(f"Saving data to {data_file_path}", flush=True)
+                    with open(data_file_path, 'wb') as f:
+                        pickle.dump(objects, f)
+                    print(f"Saved data for {label} to {data_file_path}", flush=True)
+                    #breakpoint()
+                    del objects
+                    gc.collect()
 
         # Include now Date03. No processing.
 
         # Define your labels, camera IDs, and frame range
-        cam_ids = [2]#[0, 1, 2, 3]
+        cam_ids = [2]#0, 1, 2, 3]
         #labels = ["Date04_Sub05_boxmedium"] #PROHIBITED!!!
         #labels = ["Date06_Sub07_boxmedium"]
         labels = [
-            "Date01_Sub01_boxmedium_hand"]#
+            "Date01_Sub01_boxmedium_hand"]
+        # #
         #    "Date03_Sub03_boxmedium"]
         #     "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxmedium", "Date05_Sub06_boxmedium", 
         #     "Date06_Sub07_boxmedium", "Date07_Sub08_boxmedium"
         # ]
-
         # labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
         #     "Date01_Sub01_boxmedium_hand",
         #     "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
@@ -1983,6 +2076,9 @@ if __name__ == "__main__":
         #     "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
         # ]
 
+        # Whole BEHAVE
+        #labels = ['Date02_Sub02_chairblack_hand', 'Date02_Sub02_boxmedium_hand', 'Date02_Sub02_yogamat', 'Date03_Sub04_backpack_hand', 'Date03_Sub03_suitcase_lift', 'Date03_Sub04_chairblack_liftreal', 'Date05_Sub06_suitcase_hand', 'Date04_Sub05_boxlong', 'Date05_Sub06_chairwood_sit', 'Date03_Sub04_chairblack_hand', 'Date04_Sub05_boxtiny', 'Date03_Sub03_chairwood_lift', 'Date06_Sub07_chairwood_hand', 'Date07_Sub04_chairwood_sit', 'Date03_Sub03_yogaball_play', 'Date04_Sub05_backpack', 'Date02_Sub02_trashbin', 'Date03_Sub05_chairwood_part2', 'Date03_Sub04_boxmedium', 'Date01_Sub01_tablesquare_lift', 'Date06_Sub07_monitor_move', 'Date03_Sub04_yogaball_play', 'Date05_Sub06_chairblack_lift', 'Date03_Sub03_plasticcontainer', 'Date03_Sub03_stool_lift', 'Date02_Sub02_yogaball_play', 'Date02_Sub02_backpack_back', 'Date03_Sub04_boxtiny', 'Date01_Sub01_backpack_hug', 'Date01_Sub01_boxtiny_hand', 'Date01_Sub01_boxlarge_hand', 'Date03_Sub03_toolbox', 'Date05_Sub06_trashbin', 'Date05_Sub06_toolbox', 'Date07_Sub04_boxlarge', 'Date03_Sub05_plasticcontainer', 'Date02_Sub02_boxsmall_hand', 'Date07_Sub04_monitor_hand', 'Date04_Sub05_monitor', 'Date05_Sub05_chairwood', 'Date02_Sub02_tablesmall_lean', 'Date03_Sub03_chairblack_hand', 'Date03_Sub04_backpack_back', 'Date05_Sub06_boxmedium', 'Date03_Sub05_tablesquare', 'Date03_Sub04_chairwood_lift', 'Date03_Sub05_yogaball', 'Date01_Sub01_tablesquare_sit', 'Date03_Sub05_boxsmall', 'Date03_Sub04_stool_move', 'Date03_Sub03_chairwood_hand', 'Date05_Sub06_backpack_hand', 'Date03_Sub04_plasticcontainer_lift', 'Date02_Sub02_backpack_hand', 'Date03_Sub04_chairwood_hand', 'Date01_Sub01_suitcase', 'Date04_Sub05_yogamat', 'Date03_Sub05_yogamat', 'Date03_Sub03_tablesmall_move', 'Date04_Sub05_suitcase', 'Date05_Sub06_tablesmall_lean', 'Date02_Sub02_monitor_move2', 'Date03_Sub04_yogaball_sit', 'Date03_Sub03_tablesmall_lift', 'Date05_Sub06_plasticcontainer', 'Date05_Sub06_chairwood_lift', 'Date03_Sub04_chairblack_sit', 'Date05_Sub06_yogaball_sit', 'Date04_Sub05_chairwood', 'Date06_Sub07_yogamat', 'Date05_Sub06_tablesquare_sit', 'Date04_Sub05_toolbox', 'Date06_Sub07_backpack_hand', 'Date04_Sub05_plasticcontainer', 'Date03_Sub05_backpack', 'Date07_Sub04_backpack_back', 'Date03_Sub03_tablesquare_move', 'Date06_Sub07_tablesquare_sit', 'Date06_Sub07_backpack_back', 'Date03_Sub05_boxmedium', 'Date06_Sub07_chairblack_hand', 'Date07_Sub04_chairwood_hand', 'Date01_Sub01_backpack_hand', 'Date03_Sub04_chairwood_sit', 'Date07_Sub04_boxtiny', 'Date04_Sub05_boxlarge', 'Date05_Sub05_yogaball', 'Date05_Sub06_yogaball_play', 'Date02_Sub02_stool_move', 'Date03_Sub03_stool_sit', 'Date02_Sub02_toolbox_part2', 'Date02_Sub02_chairwood_sit', 'Date03_Sub03_boxlong', 'Date03_Sub03_boxmedium', 'Date01_Sub01_toolbox', 'Date03_Sub05_toolbox', 'Date07_Sub04_boxlong', 'Date03_Sub04_yogamat', 'Date07_Sub04_backpack_hand', 'Date02_Sub02_yogaball_sit', 'Date01_Sub01_chairblack_lift', 'Date03_Sub03_tablesmall_lean', 'Date05_Sub06_monitor_hand', 'Date01_Sub01_chairblack_hand', 'Date02_Sub02_tablesquare_move', 'Date06_Sub07_yogaball_sit', 'Date07_Sub04_chairblack_hand', 'Date05_Sub06_suitcase_lift', 'Date03_Sub03_boxlarge', 'Date07_Sub08_boxmedium', 'Date06_Sub07_boxtiny', 'Date03_Sub05_boxlarge', 'Date05_Sub05_backpack', 'Date03_Sub04_tablesquare_lift', 'Date03_Sub04_tablesmall_lean', 'Date03_Sub05_boxlong', 'Date03_Sub05_chairblack', 'Date06_Sub07_chairwood_sit', 'Date02_Sub02_backpack_twohand', 'Date05_Sub06_chairwood_hand', 'Date05_Sub06_backpack_back', 'Date03_Sub04_stool_sit', 'Date03_Sub03_chairwood_sit', 'Date06_Sub07_plasticcontainer', 'Date01_Sub01_tablesmall_lean', 'Date04_Sub05_boxsmall', 'Date03_Sub03_backpack_hug', 'Date05_Sub06_boxlong', 'Date03_Sub05_chairwood', 'Date01_Sub01_chairwood_sit', 'Date03_Sub04_boxtiny_part2', 'Date05_Sub06_boxsmall', 'Date06_Sub07_tablesmall_lean', 'Date01_Sub01_suitcase_lift', 'Date01_Sub01_stool_sit', 'Date07_Sub04_boxmedium', 'Date03_Sub04_tablesmall_hand', 'Date03_Sub03_tablesquare_sit', 'Date03_Sub03_chairblack_sit', 'Date06_Sub07_chairblack_lift', 'Date07_Sub04_chairblack_lift', 'Date03_Sub03_suitcase_move', 'Date06_Sub07_backpack_twohand', 'Date03_Sub04_toolbox', 'Date03_Sub04_trashbin', 'Date02_Sub02_suitcase_lift', 'Date03_Sub05_stool', 'Date01_Sub01_boxlong_hand', 'Date02_Sub02_monitor_move', 'Date04_Sub05_monitor_part2', 'Date02_Sub02_boxtiny_hand', 'Date06_Sub07_tablesquare_lift', 'Date03_Sub03_chairblack_lift', 'Date05_Sub06_backpack_twohand', 'Date03_Sub03_backpack_hand', 'Date04_Sub05_yogaball', 'Date07_Sub04_monitor_move', 'Date01_Sub01_monitor_move', 'Date06_Sub07_trashbin', 'Date06_Sub07_toolbox', 'Date02_Sub02_plasticcontainer', 'Date01_Sub01_tablesmall_move', 'Date03_Sub03_boxsmall', 'Date02_Sub02_tablesmall_lift', 'Date03_Sub03_boxtiny', 'Date06_Sub07_tablesmall_lift', 'Date03_Sub05_suitcase', 'Date03_Sub03_trashbin', 'Date01_Sub01_boxsmall_hand', 'Date06_Sub07_chairblack_sit', 'Date05_Sub06_boxtiny', 'Date05_Sub06_stool_lift', 'Date02_Sub02_monitor_hand', 'Date03_Sub04_boxlarge', 'Date04_Sub05_stool', 'Date07_Sub04_boxsmall', 'Date02_Sub02_chairblack_lift', 'Date06_Sub07_tablesmall_move', 'Date04_Sub05_suitcase_open', 'Date01_Sub01_chairblack_sit', 'Date02_Sub02_boxlarge_hand', 'Date05_Sub06_tablesquare_lift', 'Date07_Sub04_backpack_twohand', 'Date01_Sub01_yogamat_hand', 'Date06_Sub07_yogaball_play', 'Date05_Sub06_chairblack_hand', 'Date05_Sub06_boxlarge', 'Date05_Sub06_monitor_move', 'Date03_Sub03_tablesquare_lift', 'Date01_Sub01_stool_move', 'Date04_Sub05_trashbin', 'Date03_Sub04_suitcase_lift', 'Date06_Sub07_boxsmall', 'Date05_Sub06_yogamat', 'Date02_Sub02_chairwood_hand', 'Date05_Sub05_chairblack', 'Date01_Sub01_backpack_back', 'Date03_Sub03_chairblack_sitstand', 'Date03_Sub03_yogamat', 'Date02_Sub02_chairblack_sit', 'Date02_Sub02_stool_sit', 'Date03_Sub04_boxlong', 'Date05_Sub06_tablesmall_hand', 'Date03_Sub04_suitcase_ground', 'Date06_Sub07_tablesquare_move', 'Date02_Sub02_suitcase_ground', 'Date03_Sub05_monitor', 'Date04_Sub05_tablesmall', 'Date03_Sub04_yogaball_play2', 'Date03_Sub05_trashbin', 'Date05_Sub06_stool_sit', 'Date05_Sub06_tablesquare_move', 'Date02_Sub02_tablesmall_move', 'Date03_Sub05_boxtiny', 'Date03_Sub03_backpack_back', 'Date01_Sub01_plasticcontainer', 'Date06_Sub07_boxmedium', 'Date03_Sub04_tablesmall_lift', 'Date04_Sub05_tablesquare', 'Date03_Sub05_tablesmall', 'Date01_Sub01_tablesquare_hand', 'Date01_Sub01_monitor_hand', 'Date07_Sub04_plasticcontainer', 'Date01_Sub01_boxmedium_hand', 'Date03_Sub04_boxsmall', 'Date03_Sub04_monitor_hand', 'Date04_Sub05_chairblack', 'Date01_Sub01_chairwood_lift', 'Date03_Sub04_tablesquare_sit', 'Date06_Sub07_suitcase_move', 'Date04_Sub05_monitor_sit', 'Date01_Sub01_chairwood_hand', 'Date02_Sub02_toolbox', 'Date02_Sub02_tablesquare_sit', 'Date02_Sub02_tablesquare_lift', 'Date02_Sub02_boxlong_hand', 'Date06_Sub07_chairwood_lift', 'Date06_Sub07_stool_lift', 'Date03_Sub04_backpack_hug', 'Date03_Sub03_monitor_move', 'Date03_Sub04_monitor_move', 'Date06_Sub07_boxlarge', 'Date07_Sub04_chairwood_lift', 'Date05_Sub06_tablesmall_lift', 'Date01_Sub01_tablesmall_lift', 'Date07_Sub04_chairblack_sit', 'Date06_Sub07_boxlong', 'Date03_Sub04_tablesquare_hand']
+
         #print("\nTraining on:", labels, flush=True)
         frames_subclip = 12 # 115/12 = 9
         masked_frames = 4
@@ -1990,16 +2086,19 @@ if __name__ == "__main__":
         path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
         split_dict = load_split_from_path(path_to_file)
         best_avg_loss_val = float('inf')
+        wandb.run.name = name
 
         # Specify device
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # Contains all the logic 
-        behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
+        #behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
         
         # Combine wandb.run.name to create a unique name for the saved file
-        #save_file_name = f"{wandb.run.name}_overfit_test.pt"
-        save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
+        #save_file_name = f"{wandb.run.name}_BEHAVE_singlebatch.pt"
+        save_file_name = f"magic-fog-3098progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_998_dataset_batch_overfit_test_batch_whole_dataset.pt"
+        #save_file_name = f"young-monkey-3115_overfit_test_batch_whole_dataset.pt"
+        #save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
         #save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
         #save_file_name = f"twilight-yogurt-3045cross_att_12_4behave_cam0123_notrace_offset.pt"
         #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
@@ -2008,7 +2107,7 @@ if __name__ == "__main__":
         data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
         full_save_path = os.path.join(data_file_path, save_file_name)
 
-        # data_module = BehaveDataModule(behave_dataset, split_dict, wandb.config.batch_size)
+        #data_module = BehaveDataModule(behave_dataset, split_dict, len(behave_dataset.data_info))#wandb.config.batch_size)
 
         # # Save the data module locally
         # with open(full_save_path, 'wb') as f:
@@ -2079,15 +2178,19 @@ if __name__ == "__main__":
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_twilight-yogurt-3045cross_att_12_4_epoch_0.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_helpful-music-3011cross_att_12_4_pose_only_axis_angle_loss_from_checkpoint_epoch_0.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data"
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_1e-2-0_epoch_119.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_1e-2-0_epoch_119.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_progressive_test_no_checkpoint_epoch_38.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_1170.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fiery-shadow-3101progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_1170_TRUE_dataset_batch_data_info_epoch_90.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_radiant-leaf-3120_epoch_119.pt"
 
         #Load the state dict from the checkpoint into the model
-        checkpoint = torch.load(model_path, map_location=device)
-        model_combined.load_state_dict(checkpoint)
+        # checkpoint = torch.load(model_path, map_location=device)
+        # model_combined.load_state_dict(checkpoint)
         model_combined.to(device)
         wandb_logger = WandbLogger()
         #wandb_logger.watch(model_combined, log="all", log_freq=10)  # Log model weights and gradients
-        wandb_logger.watch(model_combined, log_freq=10)  # Log model weights and gradients
+        wandb_logger.watch(model_combined, log=None , log_freq=10)  # Log model weights and gradients
         # Initialize Trainer
         print("\nTraining\n", flush=True)
         trainer = pl.Trainer(max_epochs=wandb.config.epochs, logger=wandb_logger, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)

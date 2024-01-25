@@ -759,7 +759,8 @@ def main():
 
         # Move the model to device
         model.to(device)
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_trim-wind-3037cross_att_12_4_offset_epoch_0.pt"
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ruby-jazz-3043cross_att_12_4_offset_temp_enc_quaternion_epoch_0.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_trim-wind-3037cross_att_12_4_offset_epoch_0.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_robust-smoke-3015cross_att_12_4_axis_angle_loss_from_checkpoint_pose_only_epoch_3.pt"
         checkpoint = torch.load(model_path)
@@ -1042,17 +1043,14 @@ def main():
 
                 ##########################################################################
                 # Simplify the meshes to 100 points 
-                final_num_nodes = 100
+                final_num_nodes = 10
                 
                 GT_obj_sim = o3d.geometry.PointCloud()
                 new_positions, _ = simplify_mesh(np.asarray(GT_obj.vertices), np.asarray(GT_obj.triangles).astype(np.uint32), final_num_nodes)
                 GT_obj_sim.points = o3d.utility.Vector3dVector(np.asarray(new_positions))
 
                 transformed_obj_sim = o3d.geometry.PointCloud()
-                #new_positions2, _ = simplify_mesh(np.asarray(transformed_object.vertices), np.asarray(transformed_object.triangles).astype(np.uint32), final_num_nodes)
-                
-                #Test
-                new_positions2, _ = simplify_mesh(np.asarray(GT_obj.vertices), np.asarray(GT_obj.triangles).astype(np.uint32), final_num_nodes)
+                new_positions2, _ = simplify_mesh(np.asarray(transformed_object.vertices), np.asarray(transformed_object.triangles).astype(np.uint32), final_num_nodes)
                 transformed_obj_sim.points = o3d.utility.Vector3dVector(np.asarray(new_positions2))
 
                 # # Convert the meshes to point clouds by using their vertices
@@ -1089,7 +1087,7 @@ def main():
 
                 # Now you can compute ADD and ADD-S and CD
                 add = add_err(candidate_vertices, GT_vertices)
-                add_s = adi_err(candidate_vertices, GT_vertices)
+                add_s = 0 #adi_err(candidate_vertices, GT_vertices)
                 cd = compute_cd(GT_vertices, candidate_vertices)
 
                 ###print the computed values

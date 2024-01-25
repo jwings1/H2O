@@ -647,6 +647,28 @@ class CombinedTrans(pl.LightningModule):
     def forward(self, smpl_pose, smpl_joints, obj_pose, obj_trans):
         #smpl_pose, smpl_joints, obj_pose, obj_trans = cam_data[-2][:]
 
+        smpl_joints = smpl_joints.reshape(-1,self.frames_subclip,72)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        #print("SMPL Pose:", smpl_pose.shape)
+        #print("SMPL Joints:", smpl_joints.shape)
+        #print("Object Pose:", obj_pose.shape)
+        #print("Object Trans:", obj_trans.shape)
+
+        masked_obj_pose = obj_pose.clone()
+        masked_obj_trans = obj_trans.clone()
+
+        masked_obj_pose[:,-self.masked_frames:,:] = 0
+        masked_obj_trans[:,-self.masked_frames:,:] = 0
+
+        # Move each tensor to the specified device
+        smpl_pose = smpl_pose.to(device)
+        smpl_joints = smpl_joints.to(device)
+        masked_obj_pose = masked_obj_pose.to(device)
+        masked_obj_trans = masked_obj_trans.to(device)
+        obj_pose = obj_pose.to(device)
+        obj_trans = obj_trans.to(device)
+        
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # print("SMPL Pose:", smpl_pose.shape)
@@ -677,51 +699,44 @@ class CombinedTrans(pl.LightningModule):
         
         # Embedding inputs
         embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose) + pos_encoding
-        embedded_obj_pose = self.mlp_obj_pose(obj_pose) + pos_encoding
+        embedded_obj_pose = self.mlp_obj_pose(masked_obj_pose) + pos_encoding
         embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints) + pos_encoding
-        embedded_obj_trans = self.mlp_obj_trans(obj_trans) + pos_encoding
-
-        # Masking
-        embedded_obj_pose[:,-self.masked_frames:,:] = 0
-        embedded_obj_trans[:,-self.masked_frames:,:] = 0
+        embedded_obj_trans = self.mlp_obj_trans(masked_obj_trans) + pos_encoding
         
         # # Embedding inputs
         # embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose)
-        # embedded_obj_pose = self.mlp_obj_pose(obj_pose)
+        # embedded_obj_pose = self.mlp_obj_pose(masked_obj_pose)
         # embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints)
-        # embedded_obj_trans = self.mlp_obj_trans(obj_trans)
+        # embedded_obj_trans = self.mlp_obj_trans(masked_obj_trans)
 
-        # Print shapes of the embedded tensors
-        # print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
-        # print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
-        # print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
-        # print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
-
-        # positions with True are not allowed to attend
-        # masking should happen when only in the frames
+        # #Print shapes of the embedded tensors
+        #print("Embedded SMPL Pose Shape:", embedded_smpl_pose.shape)
+        #print("Embedded Object Pose Shape:", embedded_obj_pose.shape)
+        #print("Embedded SMPL Joints Shape:", embedded_smpl_joints.shape)
+        #print("Embedded Object Trans Shape:", embedded_obj_trans.shape)
 
         #Initialize tgt_mask
         #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
-        tgt_mask = torch.zeros(1 * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
+        tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
         #tgt_mask = torch.zeros(48, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
 
         # Iterate to set the last self.masked_frames rows of the upper diagonal matrix to True
-        for i in range(1 * self.num_heads):
+        for i in range(wandb.config.batch_size * self.num_heads):
             for row in range(self.frames_subclip - self.masked_frames, self.frames_subclip):
                     tgt_mask[i, row, row:] = True  # Set the elements on and above the diagonal to True
 
         # Separe pose and joints
         # Transformer models
 
-        predicted_obj_pose_emb = self.transformer_model_pose(embedded_smpl_pose.permute(1,0,2), embedded_obj_pose.permute(1,0,2), tgt_mask=tgt_mask)
-        predicted_obj_trans_emb = self.transformer_model_trans(embedded_smpl_joints.permute(1,0,2), embedded_obj_trans.permute(1,0,2), tgt_mask=tgt_mask)
+        predicted_obj_pose_emb = self.transformer_model_pose(embedded_smpl_pose.permute(1,0,2), embedded_obj_pose.permute(1,0,2), tgt_mask=None)#tgt_mask)
+        predicted_obj_trans_emb = self.transformer_model_trans(embedded_smpl_joints.permute(1,0,2), embedded_obj_trans.permute(1,0,2), tgt_mask=None)#tgt_mask)
 
         predicted_obj_pose = self.mlp_output_pose(predicted_obj_pose_emb.permute(1,0,2))
         predicted_obj_trans = self.mlp_output_trans(predicted_obj_trans_emb.permute(1,0,2))
 
-        # Print dimensions of the tensors
-        # print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
-        # print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
+        # #Print dimensions of the tensors
+        # #print("Dimensions of Predicted Object Pose:", predicted_obj_pose.shape)
+        # #print("Dimensions of Predicted Object Trans:", predicted_obj_trans.shape)
 
         return predicted_obj_pose, predicted_obj_trans
 
@@ -734,111 +749,9 @@ def main():
     # Set scene
     #identifiers = ["Date03_Sub03_tablesmall_lift", "Date03_Sub03_tablesquare_move" ,"Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
     #"Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
-    identifiers = ["Date01_Sub01_boxmedium_hand"] 
-    # identifiers = [
-    #     'Date03_Sub03_yogamat', 
-    #     'Date03_Sub03_boxlarge',
-    #     'Date03_Sub03_boxlong',
-    #     'Date03_Sub03_boxmedium',
-    #     'Date03_Sub03_boxsmall',
-    #     'Date03_Sub03_boxtiny',
-    #     'Date03_Sub03_chairblack_hand',
-    #     'Date03_Sub03_chairblack_lift',
-    #     'Date03_Sub03_chairblack_sit',
-    #     'Date03_Sub03_chairblack_sitstand',
-    #     'Date03_Sub03_chairwood_hand',
-    #     'Date03_Sub03_tablesquare_sit',
-    #     'Date03_Sub03_toolbox',
-    #     'Date03_Sub03_trashbin',      
-    #     'Date03_Sub04_boxlarge',
-    #     'Date03_Sub04_boxlong',
-    #     'Date03_Sub04_boxmedium',
-    #     'Date03_Sub04_boxsmall',
-    #     'Date03_Sub04_boxtiny',
-    #     'Date03_Sub04_chairblack_hand',
-    #     'Date03_Sub04_tablesmall_lean',
-    #     'Date03_Sub04_tablesmall_lift',
-    #     'Date03_Sub04_tablesquare_hand',
-    #     'Date03_Sub04_tablesquare_lift',
-    #     'Date03_Sub04_tablesquare_sit',
-    #     'Date03_Sub04_toolbox',
-    #     'Date03_Sub04_trashbin',
-    #     'Date03_Sub04_yogamat',
-    #     'Date03_Sub05_boxlarge',
-    #     'Date03_Sub05_boxlong',
-    #     'Date03_Sub05_boxmedium',
-    #     'Date03_Sub05_boxsmall',
-    #     'Date03_Sub05_boxtiny',
-    #     'Date03_Sub05_toolbox',
-    #     'Date03_Sub05_trashbin',
-    #     'Date03_Sub05_yogamat',
-    # ]
-    # ["Date01_Sub01_boxmedium_hand","Date03_Sub03_boxmedium","Date03_Sub03_stool_lift","Date03_Sub03_stool_sit", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxlarge",\
-    # "Date03_Sub05_suitcase", "Date03_Sub05_stool","Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
+    identifiers = ["Date03_Sub03_boxmedium","Date03_Sub03_stool_lift","Date03_Sub03_stool_sit", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxlarge",\
+    "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"]
     
-    # identifiers = [
-    #     "Date03_Sub04_stool_move",
-    #     "Date03_Sub03_chairwood_lift",
-    #     "Date03_Sub03_chairwood_sit",
-    #     "Date03_Sub03_monitor_move",
-    #     "Date03_Sub03_plasticcontainer",
-    #     "Date03_Sub03_stool_lift",
-    #     "Date03_Sub03_stool_sit",
-    #     "Date03_Sub03_suitcase_lift",
-    #     "Date03_Sub03_suitcase_move",
-    #     "Date03_Sub03_tablesmall_lean",
-    #     "Date03_Sub03_tablesmall_lift",
-    #     "Date03_Sub03_tablesmall_move",
-    #     "Date03_Sub03_tablesquare_lift",
-    #     "Date03_Sub03_tablesquare_move",
-    #     "Date03_Sub04_chairblack_liftreal",
-    #     "Date03_Sub04_chairblack_sit",
-    #     "Date03_Sub04_chairwood_hand",
-    #     "Date03_Sub04_chairwood_lift",
-    #     "Date03 Sub04_chairwood sit",
-    #     "Date03_Sub04_monitor_hand",
-    #     "Date03_Sub04_monitor_move",
-    #     "Date03_Sub04_plasticcontainer_lift",    
-    #     "Date03_Sub04_stool_sit",
-    #     "Date03_Sub04_suitcase_ground",
-    #     "Date03_Sub04_suitcase_lift",
-    #     "Date03_Sub04_tablesmall_hand",
-    #     "Date03_Sub05_chairblack",
-    #     "Date03_Sub05_chairwood",
-    #     "Date03_Sub05_monitor",
-    #     "Date03_Sub05_plasticcontainer",
-    #     "Date03_Sub05_stool",
-    #     "Date03_Sub05_suitcase",
-    #     "Date03_Sub05_tablesmall",
-    #     "Date03_Sub05_tablesquare",
-    # ]
-    
-    ##################################################################################################################à
-    # Define the local path where the data will be saved
-    save_file_name = f"peachy-snow-3085cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
-    data_file_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module'
-    full_save_path = os.path.join(data_file_path, save_file_name)
-
-    # # Load the data
-    # with open(full_save_path, 'rb') as f:
-    #     data_module = pickle.load(f)
-
-    # # Analysis of the distribution
-    # train_loader = data_module.train_dataloader()
-    
-    # # List of batches
-    # unbatched_dataset = []
-
-    # for batch in train_loader:
-    #     # batch[0][0] -> pose (16, 12, 72)
-    #     # batch[0][1] -> joints (16, 12, 72)
-    #     # batch[0][2] -> obj_pose (16, 12, 3)
-    #     # batch[0][3] -> obj_trans (16, 12, 3)
-    #     for idx in range((batch[0][0].shape)[0]):
-    #         unbatched_dataset.append([batch[0][0][idx], batch[0][1][idx], batch[0][2][idx], batch[0][3][idx]])
-
-    ###############################################################################################################
-
     for identifier in identifiers:
 
         print("Processing:", identifier, flush=True)
@@ -846,7 +759,7 @@ def main():
         # Change .pt name when creating a new one
         data_file_path = os.path.join('/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy', identifier+".pkl")
 
-        temp_dir = "/scratch_net/biwidl307/lgermano/crossvit/visualizations/temp_frames-1"
+        temp_dir = "/scratch_net/biwidl307/lgermano/crossvit/visualizations/temp_frames"
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
             ##print(f"Created directory: {temp_dir}")
@@ -863,13 +776,13 @@ def main():
                     return f"Failed to delete {file_path}. Reason: {e}"
             
             ##print(f"Directory {temp_dir} already exists. Its contents have been deleted.")
-        
+
         # Check if the data has already been saved
         if os.path.exists(data_file_path):
             # Load the saved data
             with open(data_file_path, 'rb') as f:
                 cam_data = pickle.load(f)
-
+        
         ###print(cam_data[0][0].keys())
         # for cam_id in range(4):
         #     for idx in range(20):
@@ -887,60 +800,11 @@ def main():
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_trim-wind-3037cross_att_12_4_offset_epoch_9.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_twilight-yogurt-3045cross_att_12_4_epoch_0.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_royal-haze-3056cross_att_12_4_6D_loss_weighted_epoch_0.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cosmic-morning-3057cross_att_12_4_6D_loss_weighted_epoch_119.pt"
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cosmic-morning-3057cross_att_12_4_6D_loss_weighted_epoch_119.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_ethereal-frost-2985cross_att_12_4_zeros_epoch_9.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_robust-smoke-3015cross_att_12_4_axis_angle_loss_from_checkpoint_pose_only_epoch_3.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_deft-mountain-3079cross_att_12_4_norm_cam2_offset_norm_1e-5e-0_epoch_4.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_dulcet-planet-3081cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_119.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_celestial-river-3083cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_119.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_peachy-snow-3085cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_14.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_epoch_1.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_pose_study_epoch_2.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_cross_att_12_4_norm_cam2_offset_1e-2-0_epoch_119.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_778457_from_check_new_scheduler_epoch_118.pt"
-        # val_trans_loss=0.000243
-        #model_path_1 = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_progressive_test_no_checkpoint_epoch_38.pt"
-        # val_pose_loss=0.000485
-        #model_path_2 = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_442.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_998.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_1170.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fiery-shadow-3101progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_1170_TRUE_dataset_batch_data_info_epoch_90.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_radiant-leaf-3120_epoch_9.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_radiant-leaf-3120_epoch_119.pt"
-        #block recursive
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_wobbly-firebrand-3158_epoch_17.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_magic-puddle-3162_epoch_48.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_rural-sponge-3163_epoch_347.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_rural-sponge-3163_epoch_891.pt"
-        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_gallant-night-3161_epoch_541.pt"
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_rural-sponge-3163_epoch_1197.pt"
         checkpoint = torch.load(model_path)
         model.load_state_dict(checkpoint)
-        
-        # # Load state dictionaries from both models
-        # checkpoint_1 = torch.load(model_path_1)
-        # checkpoint_2 = torch.load(model_path_2)
-
-        # # # Print keys from both checkpoints
-        # # print("Keys in checkpoint 1:")
-        # # for key in checkpoint_1.keys():
-        # #     print(key, flush=True)
-
-        # # Create a new state dictionary
-        # new_state_dict = {}
-
-        # # Select 'trans' and 'joints' keys from checkpoint_1
-        # for key, value in checkpoint_1.items():
-        #     if 'trans' in key or 'joints' in key:
-        #         new_state_dict[key] = value
-
-        # # Select other keys from checkpoint_2
-        # for key, value in checkpoint_2.items():
-        #     if 'trans' not in key and 'joints' not in key:
-        #         new_state_dict[key] = value
-
-        # # Load the new state dict into your model
-        # model.load_state_dict(new_state_dict)
 
         # Set the model to evaluation mode
         model.eval()
@@ -1041,21 +905,23 @@ def main():
 
         max_th = 0.10
 
+        ##########################################################################
+
         # Initialize variables to store the previous object pose and translation for each camera
         frame_idx = 0
         prev_obj_pose_offset = None
         prev_obj_trans_offset = None
         items = [None] * 4
-        total_trans = []
         # Process interpolated frames
         #for idx in range(0,len(cam_data[2]),masked_frames):
         # make a masked_frames step, only if prev_ variables are set to None
         #for idx in range(0,len(cam_data[2]) - frames_subclip +1, frames_subclip):
         last_frame = min(len(cam_data[2]) - frames_subclip +1, len(cam_data[2]))
-        #for idx in range(len(unbatched_dataset)):#range(0,last_frame, 1): 
-        for idx in range(0,last_frame, 1):
+        for idx in range(0,last_frame, 1): 
             images = []
-            for cam_id in [3]:
+            total_trans = []
+            for cam_id in [2]:
+
                 if idx == 0:
                     current_abs_obj_pose = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_pose']
                     current_abs_obj_trans = cam_data[cam_id][idx + frames_subclip - masked_frames -1]['obj_trans']
@@ -1075,7 +941,6 @@ def main():
                 smpl_joints = cam_data[cam_id][idx + frames_subclip - masked_frames]['joints']
                 date = cam_data[cam_id][idx]['date']
                 obj_template_path = cam_data[cam_id][idx]['obj_template_path']
-                #print(obj_template_path, flush=True)
 
                 # There is no image path for the moment...
                 img = np.ones((1800, 1800, 4), dtype=np.uint8) * 255
@@ -1097,10 +962,10 @@ def main():
                 end_idx = idx + frames_subclip
                 subclip_data = cam_data[cam_id][start_idx:end_idx]
 
-                if prev_obj_pose_offset is not None and prev_obj_trans_offset is not None:
+                if prev_obj_pose_offset is not None and prev_obj_trans_offset is not None and False:
 
                     keys = ['pose', 'joints']
-                    for idx2, key in enumerate(keys):
+                    for idx, key in enumerate(keys):
                         tensors = []
                         for i in range(len(subclip_data)):
                             if i == 0:
@@ -1113,7 +978,7 @@ def main():
                                 tensors.append(diff)
                         # Stack the tensors for each key
                         stacked_tensors = torch.stack(tensors)
-                        items[idx2] = stacked_tensors
+                        items[idx] = stacked_tensors
                     
                     
                     # Update objects
@@ -1124,36 +989,7 @@ def main():
                     items[3] = torch.roll(items[3], -1, 0)
                     items[3][-masked_frames-1] = prev_obj_trans_offset
 
-
-                    ####################################################################################
-                    # GT values for re-setting
-                    keys_GT = ['pose', 'joints','obj_pose', 'obj_trans']
-                    #items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
-                    items_GT = []
-                    for key in keys_GT:
-                        tensors = []
-                        for i in range(len(subclip_data)):
-                            if i == 0:
-                                # Use a tensor of zeros for the first element
-                                zeros_tensor = torch.zeros_like(torch.tensor(subclip_data[i][key], dtype=torch.float32))
-                                tensors.append(zeros_tensor)
-                            else:
-                                # Compute the difference with the previous value
-                                diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(subclip_data[i-1][key], dtype=torch.float32)
-                                tensors.append(diff)
-                        # Stack the tensors for each key
-                        stacked_tensors = torch.stack(tensors)
-                        items_GT.append(stacked_tensors)
-                    #####################################################################################
                 else:
-
-                    ##########################################
-                    # unfold dataset
-                    # print("\n")
-                    # print(idx)                 
-                    # items = unbatched_dataset[idx]
-
-                    #########################################
 
                     keys = ['pose', 'joints','obj_pose', 'obj_trans']
                     #items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in keys]
@@ -1172,66 +1008,38 @@ def main():
                         # Stack the tensors for each key
                         stacked_tensors = torch.stack(tensors)
                         items.append(stacked_tensors)
-
-                # # Reset option
-                # if  idx != 0:# idx % 10 == 0 and:
-                #    print("Re-set the absolute pos/trans- and offsets", flush=True)
-                   
-                # #    current_abs_obj_trans = obj_trans
-                # #    current_abs_obj_pose = obj_pose
-
-                #    items = items_GT
-
-
-                # SMPL joints
-                items[1] = items[1].reshape(frames_subclip,72)
                 
-                # Normalize data
-
-                def normalize_data(data, mean, std):
-                    return (data - mean) / std
-                
-                # Normalize the batched data during traing. Trans only for now.
-                smpl_joints_mean = torch.ones(items[1].size()) * 1e-2
-                smpl_joints_std = torch.ones(items[1].size()) * 1e-0
-                obj_trans_mean = torch.ones(items[3].size()) * 1e-2
-                obj_trans_std = torch.ones(items[3].size()) * 1e-0
-                
-                items[1] = normalize_data(items[1].to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device))
-                items[3] = normalize_data(items[3].to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
-                               
                 candidate_obj_pose_tensor, candidate_obj_trans_tensor = model(items[0].unsqueeze(0).to(device), items[1].unsqueeze(0).to(device), items[2].unsqueeze(0).to(device), items[3].unsqueeze(0).to(device))
                 
-                # Unnormalize data
-                def unnormalize_data(data, mean, std):
-                    return (data * std) + mean
+                # Store the candidate pose and translation for use in the next iteration
+
+                # Perfect predictor
+
+                # prev_obj_pose_offset = obj_pose - prev_obj_pose
+                # prev_obj_trans_offset = obj_trans - prev_obj_trans   
+
+                # current_abs_obj_trans += (obj_trans - prev_obj_trans)
+                # current_abs_obj_pose += (obj_pose - prev_obj_pose)
                 
-                candidate_obj_trans_tensor = unnormalize_data(candidate_obj_trans_tensor.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))            
+                prev_obj_pose_offset = candidate_obj_pose_tensor[0,-masked_frames,:]
+                prev_obj_trans_offset = candidate_obj_trans_tensor[0,-masked_frames,:]
                 
                 candidate_obj_pose = candidate_obj_pose_tensor.cpu().detach().numpy()
                 candidate_obj_trans = candidate_obj_trans_tensor.cpu().detach().numpy()
 
-                # Fully recursive after initialization
-
-                # Store the candidate pose and translation for use in the next iteration
-                
-                prev_obj_pose_offset = candidate_obj_pose_tensor[0,-masked_frames,:]
-                prev_obj_trans_offset = candidate_obj_trans_tensor[0,-masked_frames,:]
-
                 current_abs_obj_trans += candidate_obj_trans[0,-masked_frames,:]
                 current_abs_obj_pose += candidate_obj_pose[0,-masked_frames,:]
 
-                # GT 
+                if idx % 10 == 0:
+                    # Re-set the absolute pos/trans
+                    current_abs_obj_trans = obj_trans
+                    current_abs_obj_pose = obj_pose
                 
-                # current_abs_obj_trans = prev_obj_trans + candidate_obj_trans[0,-masked_frames,:]
-                # current_abs_obj_pose = prev_obj_pose + candidate_obj_pose[0,-masked_frames,:]
-                
-                   
                 if idx == 0:
                     object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
                     
                     # Simplify the mesh
-                    final_num_nodes = 1500
+                    final_num_nodes = 150
                     new_positions, new_faces = simplify_mesh(np.asarray(object_mesh.vertices), np.asarray(object_mesh.triangles).astype(np.uint32), final_num_nodes)
                     
                     # Create a new mesh object
@@ -1242,7 +1050,6 @@ def main():
                     object_mesh_sim.triangles = o3d.utility.Vector3iVector(new_faces)
 
                 transformed_object = plot_obj_in_camera_frame(current_abs_obj_pose, current_abs_obj_trans, object_mesh_sim)
-                #transformed_object = plot_obj_in_camera_frame(obj_pose, obj_trans, object_mesh_sim)
                 vertices_np = np.asarray(transformed_object.vertices)  # Convert directly to numpy array
                 obj_projected_verts = [project_to_image(vert, intrinsics_cam, distortion_cam) for vert in vertices_np]
                 faces_np = np.asarray(transformed_object.triangles)  # Convert the triangles to numpy array
@@ -1260,7 +1067,6 @@ def main():
                 # candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
 
                 # Calculate MSE for obj_pose
-                # Obj pose is abs
                 error_pose = current_abs_obj_pose - obj_pose
                 obj_pose_loss = np.mean(np.square(error_pose))
 
@@ -1364,12 +1170,12 @@ def main():
 
         ########################################################
 
-        for cam_id in [3]:
+        for cam_id in [2]:
 
             auc_ADD = compute_auc(np.array(all_ADD_values[cam_id]), max_th) * 100
             auc_ADD_S = compute_auc(np.array(all_ADD_S_values[cam_id]), max_th) * 100
-            cd_mean = sum(all_CD_values[cam_id]) / (len(all_CD_values[cam_id]))
-            mean_total_trans_loss = sum(total_trans) / len(total_trans)
+            cd_mean = sum(all_CD_values[cam_id]) / len(all_CD_values[cam_id])
+            mean_total_trans_loss = sum(total_trans_loss) / len(total_trans_loss)
 
             print(f"AUC for scene {identifier}, camera {cam_id} - ADD: {auc_ADD:.2f}%, ADD-S: {auc_ADD_S:.2f}%, CD [m]: {cd_mean:.2f}, MSE trans [m]: {mean_total_trans_loss}", flush=True)
 
@@ -1386,7 +1192,7 @@ def main():
 
         subprocess.call([
             "ffmpeg",
-            "-r", "60",
+            "-r", "2",
             "-i", os.path.join(temp_dir, "frame_%04d.png"),
             "-vcodec", "libx264", 
             "-crf", "30",
@@ -1396,7 +1202,7 @@ def main():
         print(f"Video saved at {video_path}.")
         
         #print("\nCleaning up temporary files...")
-        #shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_dir)
         cv2.destroyAllWindows()
         #print("Cleanup complete.")
 
