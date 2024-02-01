@@ -1419,11 +1419,17 @@ if __name__ == "__main__":
                     activation = 'gelu',
                     )
 
-                self.transformer_model_pose = nn.Transformer(
-                    d_model = self.d_model,
-                    nhead= self.num_heads,
-                    num_encoder_layers= 2, 
-                    num_decoder_layers= 1,
+                self.transformer_model_trans = nn.TransformerEncoderLayer(
+                    d_model = self.d_model, 
+                    nhead = self.num_heads,
+                    dropout = 0.05,
+                    activation = 'gelu',
+                    )
+
+
+                self.transformer_model_pose = nn.TransformerEncoderLayer(
+                    d_model = self.d_model, 
+                    nhead = self.num_heads,
                     dropout = 0.05,
                     activation = 'gelu',
                     )
@@ -1460,9 +1466,9 @@ if __name__ == "__main__":
                 pos_encoding = positional_encoding(self.d_model, self.frames_subclip).unsqueeze(0).to(device)
                 
                 # Embedding inputs
-                embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose) + pos_encoding
+                #embedded_smpl_pose = self.mlp_smpl_pose(smpl_pose) + pos_encoding
                 embedded_obj_pose = self.mlp_obj_pose(obj_pose) + pos_encoding
-                embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints) + pos_encoding
+                #embedded_smpl_joints = self.mlp_smpl_joints(smpl_joints) + pos_encoding
                 embedded_obj_trans = self.mlp_obj_trans(obj_trans) + pos_encoding
 
                 # Masking
@@ -1484,21 +1490,14 @@ if __name__ == "__main__":
                 # positions with True are not allowed to attend
                 # masking should happen when only in the frames
 
-                #Initialize tgt_mask
-                #tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
-                tgt_mask = torch.zeros(1 * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
-                #tgt_mask = torch.zeros(48, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
-
-                # Iterate to set the last self.masked_frames rows of the upper diagonal matrix to True
-                for i in range(1 * self.num_heads):
-                    for row in range(self.frames_subclip - self.masked_frames, self.frames_subclip):
-                            tgt_mask[i, row, row:] = True  # Set the elements on and above the diagonal to True
-
                 # Separe pose and joints
                 # Transformer models
 
-                predicted_obj_pose_emb = self.transformer_model_pose(embedded_smpl_pose.permute(1,0,2), embedded_obj_pose.permute(1,0,2), tgt_mask=tgt_mask)
-                predicted_obj_trans_emb = self.transformer_model_trans(embedded_smpl_joints.permute(1,0,2), embedded_obj_trans.permute(1,0,2), tgt_mask=tgt_mask)
+                #predicted_obj_pose_emb = self.transformer_model_pose(embedded_smpl_pose.permute(1,0,2), embedded_obj_pose.permute(1,0,2), tgt_mask=tgt_mask)
+                #predicted_obj_trans_emb = self.transformer_model_trans(embedded_smpl_joints.permute(1,0,2), embedded_obj_trans.permute(1,0,2), tgt_mask=tgt_mask)
+                
+                predicted_obj_pose_emb = self.transformer_model_pose(embedded_obj_pose.permute(1,0,2))
+                predicted_obj_trans_emb = self.transformer_model_trans(embedded_obj_trans.permute(1,0,2))
 
                 predicted_obj_pose = self.mlp_output_pose(predicted_obj_pose_emb.permute(1,0,2))
                 predicted_obj_trans = self.mlp_output_trans(predicted_obj_trans_emb.permute(1,0,2))
@@ -1588,8 +1587,8 @@ if __name__ == "__main__":
                     GT_obj_pose = GT_obj_pose.unsqueeze(0)
                     GT_obj_trans = GT_obj_trans.unsqueeze(0)
                     
-                    pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames,:].unsqueeze(1), GT_obj_pose[:,-self.masked_frames,:].unsqueeze(1))
-                    trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames,:], GT_obj_trans[:,-self.masked_frames,:])
+                    pose_loss = rotation_6d_loss(predicted_obj_pose[:,-self.masked_frames:,:], GT_obj_pose[:,-self.masked_frames:,:])
+                    trans_loss = F.mse_loss(predicted_obj_trans[:,-self.masked_frames:,:], GT_obj_trans[:,-self.masked_frames:,:])
                     
                     total_loss = pose_loss + trans_loss
                     mean_total_loss = torch.mean(total_loss)

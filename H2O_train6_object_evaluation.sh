@@ -29,14 +29,16 @@ echo "SLURM_JOB_ID:    ${SLURM_JOB_ID}"
 
 source /itet-stor/lgermano/net_scratch/conda/etc/profile.d/conda.sh
 
-conda activate render
+conda activate evaluation
 
 export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHONPATH
 export CONDA_OVERRIDE_CUDA=11.8
 export WANDB_DIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
 
 #python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
-python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_offset_normaliz.py
+#python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_offset_normaliz_single_loss.py
+python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_offset_normaliz_block.py
+#python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_notrace_vis_offset_normaliz_encoder_only.py
 
 
 echo "DONE!"

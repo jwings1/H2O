@@ -3,7 +3,7 @@
 #SBATCH --job-name="rendering"
 #SBATCH --error=/scratch_net/biwidl307/lgermano/H2O/log/error/%j.err
 #SBATCH --output=/scratch_net/biwidl307/lgermano/H2O/log/out/%j.out
-#SBATCH --mem-per-cpu=70G
+#SBATCH --mem-per-cpu=40G
 #SBATCH --gres=gpu:1
 ##SBATCH --constraint="a6000"
 
@@ -29,14 +29,16 @@ echo "SLURM_JOB_ID:    ${SLURM_JOB_ID}"
 
 source /itet-stor/lgermano/net_scratch/conda/etc/profile.d/conda.sh
 
-conda activate render
+conda activate pytcu11
 
 export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHONPATH
 export CONDA_OVERRIDE_CUDA=11.8
 export WANDB_DIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
 
 #python /scratch_net/biwidl307/lgermano/H2O/reprojection_human_obj_mesh3D_background.py
-python -m memory_profiler /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_offset.py "$@"
+#python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_offset_progressive_single_loss.py "$@"
+#python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_offset_progressive_encoder_only.py "$@"
+python /scratch_net/biwidl307/lgermano/H2O/H2O_train6_cross_offset_progressive_block.py "$@"
 
 
 echo "DONE!"

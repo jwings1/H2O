@@ -17,7 +17,7 @@ import itertools
 import datetime
 import torch.nn as nn
 from pytorch_lightning import Trainer
-from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+#from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 import scipy.spatial.transform as spt
 import os
 import pickle
@@ -33,7 +33,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import gc  # Garbage collection
-import open3d as o3d
+#import open3d as o3d
 from scipy.spatial import cKDTree
 import math
 import argparse
@@ -126,7 +126,7 @@ class BehaveDatasetOffset(Dataset):
                     print(f"Found file: {file_path}", flush=True)
                     with open(file_path, 'rb') as f:
 
-                        if len(self.labels) == 1:
+                        if len(self.labels) == 1 and False:
 
                             self.dataset = pickle.load(f)
                             for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
@@ -138,7 +138,8 @@ class BehaveDatasetOffset(Dataset):
                         else:
 
                             dataset = pickle.load(f)
-                            for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, 1):
                             #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
                             #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
@@ -153,7 +154,7 @@ class BehaveDatasetOffset(Dataset):
         file_path, cam_id, start_idx, end_idx = self.data_info[idx]
 
         # Only possible if there is one training label
-        if len(self.labels) == 1:
+        if len(self.labels) == 1 and False:
             subclip_data = self.dataset[cam_id][start_idx:end_idx]
             scene = self.dataset[cam_id][0]['scene']
         else:
@@ -290,6 +291,8 @@ class BehaveDataModule(pl.LightningDataModule):
                 self.test_indices.append(idx)
                 test_identifiers.append(scene)
 
+        # Sanity check!!
+        self.test_indices = self.train_indices
         self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
         # Uncomment to print identifiers in train and test sets

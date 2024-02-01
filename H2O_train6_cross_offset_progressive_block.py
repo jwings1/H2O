@@ -17,7 +17,7 @@ import itertools
 import datetime
 import torch.nn as nn
 from pytorch_lightning import Trainer
-from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+#from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 import scipy.spatial.transform as spt
 import os
 import pickle
@@ -33,7 +33,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import gc  # Garbage collection
-import open3d as o3d
+#import open3d as o3d
 from scipy.spatial import cKDTree
 import math
 import argparse
@@ -167,70 +167,70 @@ if __name__ == "__main__":
                     'p2': color_intrinsics['p2']
                 }
 
-        def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
-            # Load obj template
-            #object_template = "/scratch_net/biwidl307_second/lgermano/behave/objects/stool/stool.obj"
-            object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
-            object_vertices = np.asarray(object_mesh.vertices)
+        # def plot_obj_in_camera_frame(obj_pose, obj_trans, obj_template_path):
+        #     # Load obj template
+        #     #object_template = "/scratch_net/biwidl307_second/lgermano/behave/objects/stool/stool.obj"
+        #     object_mesh = o3d.io.read_triangle_mesh(obj_template_path)
+        #     object_vertices = np.asarray(object_mesh.vertices)
             
-            # Debug: ##print object vertices before any transformation
-            ###print("Object vertices before any transformation: ", object_vertices)
+        #     # Debug: ##print object vertices before any transformation
+        #     ###print("Object vertices before any transformation: ", object_vertices)
 
-            # Compute the centroid of the object
-            centroid = np.mean(object_vertices, axis=0)
+        #     # Compute the centroid of the object
+        #     centroid = np.mean(object_vertices, axis=0)
 
-            # Translate all vertices such that the object's centroid is at the origin
-            object_vertices = object_vertices - centroid
+        #     # Translate all vertices such that the object's centroid is at the origin
+        #     object_vertices = object_vertices - centroid
             
-            # Convert axis-angle representation to rotation matrix
-            R_w = Rotation.from_rotvec(obj_pose).as_matrix()
+        #     # Convert axis-angle representation to rotation matrix
+        #     R_w = Rotation.from_rotvec(obj_pose).as_matrix()
             
-            # Build transformation matrix of mesh in world coordinates
-            T_mesh = np.eye(4)
-            T_mesh[:3, :3] = R_w  # No rotation applied, keeping it as identity matrix
-            T_mesh[:3, 3] = obj_trans
+        #     # Build transformation matrix of mesh in world coordinates
+        #     T_mesh = np.eye(4)
+        #     T_mesh[:3, :3] = R_w  # No rotation applied, keeping it as identity matrix
+        #     T_mesh[:3, 3] = obj_trans
             
-            # Debug: Verify T_mesh
-            # ##print("T_mesh: ", T_mesh)
+        #     # Debug: Verify T_mesh
+        #     # ##print("T_mesh: ", T_mesh)
 
-            # # Extract rotation and translation of camera from world coordinates
-            # R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
-            # t_w_c = np.array(cam_params['translation']).reshape(3,)
+        #     # # Extract rotation and translation of camera from world coordinates
+        #     # R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
+        #     # t_w_c = np.array(cam_params['translation']).reshape(3,)
             
-            # # Build transformation matrix of camera in world coordinates
-            # T_cam = np.eye(4)
-            # T_cam[:3, :3] = R_w_c
-            # T_cam[:3, 3] = t_w_c
+        #     # # Build transformation matrix of camera in world coordinates
+        #     # T_cam = np.eye(4)
+        #     # T_cam[:3, :3] = R_w_c
+        #     # T_cam[:3, 3] = t_w_c
             
-            # # Debug: Verify T_cam
-            # ##print("T_cam: ", T_cam)
+        #     # # Debug: Verify T_cam
+        #     # ##print("T_cam: ", T_cam)
 
-            # Ensure types are float64
-            #T_cam = T_cam.astype(np.float64)
-            T_mesh = T_mesh.astype(np.float64)
+        #     # Ensure types are float64
+        #     #T_cam = T_cam.astype(np.float64)
+        #     T_mesh = T_mesh.astype(np.float64)
 
-            # Calculate transformation matrix of mesh in camera frame
-            # T_mesh_in_cam = np.linalg.inv(T_cam) @ T_mesh
-            T_mesh_in_cam = T_mesh
+        #     # Calculate transformation matrix of mesh in camera frame
+        #     # T_mesh_in_cam = np.linalg.inv(T_cam) @ T_mesh
+        #     T_mesh_in_cam = T_mesh
 
-            # Debug: Verify T_mesh_in_cam
-            ###print("T_mesh_in_cam: ", T_mesh_in_cam)
+        #     # Debug: Verify T_mesh_in_cam
+        #     ###print("T_mesh_in_cam: ", T_mesh_in_cam)
             
-            # Transform the object's vertices using T_mesh_in_cam
-            transformed_vertices = object_vertices
-            transformed_vertices_homogeneous = T_mesh_in_cam @ np.vstack((transformed_vertices.T, np.ones(transformed_vertices.shape[0])))
-            transformed_vertices = transformed_vertices_homogeneous[:3, :].T
+        #     # Transform the object's vertices using T_mesh_in_cam
+        #     transformed_vertices = object_vertices
+        #     transformed_vertices_homogeneous = T_mesh_in_cam @ np.vstack((transformed_vertices.T, np.ones(transformed_vertices.shape[0])))
+        #     transformed_vertices = transformed_vertices_homogeneous[:3, :].T
 
-            # Debug: Check transformed object
-            # ##print("Transformed vertices: ", transformed_vertices)
+        #     # Debug: Check transformed object
+        #     # ##print("Transformed vertices: ", transformed_vertices)
 
-            # Update object mesh vertices
-            object_mesh.vertices = o3d.utility.Vector3dVector(transformed_vertices)
+        #     # Update object mesh vertices
+        #     object_mesh.vertices = o3d.utility.Vector3dVector(transformed_vertices)
             
-            # Extract new object translation in camera frame for further use if needed
-            obj_trans_new_frame = T_mesh_in_cam[:3, 3]
+        #     # Extract new object translation in camera frame for further use if needed
+        #     obj_trans_new_frame = T_mesh_in_cam[:3, 3]
 
-            return object_mesh
+        #     return object_mesh
 
         def load_pickle(filepath):
             with open(filepath, "rb") as f:
@@ -324,106 +324,106 @@ if __name__ == "__main__":
 
             return interpolated_frames
 
-        def project_frames(data_frames, timestamps, N):
+        # def project_frames(data_frames, timestamps, N):
 
-            print(len(data_frames))
-            print(len(timestamps))
+        #     print(len(data_frames))
+        #     print(len(timestamps))
 
-            # Initialize a dictionary to hold lists for each camera
-            cam_lists = {
-                0: [],
-                1: [],
-                2: [],
-                3: []
-            }
+        #     # Initialize a dictionary to hold lists for each camera
+        #     cam_lists = {
+        #         0: [],
+        #         1: [],
+        #         2: [],
+        #         3: []
+        #     }
 
-            x_percent = 100 # Replace with the percentage you want, e.g., 50 for 50%
+        #     x_percent = 100 # Replace with the percentage you want, e.g., 50 for 50%
 
-            # Calculate the number of frames to select
-            total_frames = len(data_frames)
-            frames_to_select = int(total_frames * (x_percent / 100))
+        #     # Calculate the number of frames to select
+        #     total_frames = len(data_frames)
+        #     frames_to_select = int(total_frames * (x_percent / 100))
 
-            # Calculate start and end indices
-            # start_index = (total_frames - frames_to_select) // 2
-            # end_index = start_index + frames_to_select
+        #     # Calculate start and end indices
+        #     # start_index = (total_frames - frames_to_select) // 2
+        #     # end_index = start_index + frames_to_select
 
-            # Loop over the selected range of frames
-            for idx in range(0, frames_to_select):
-                input_frame = data_frames[idx]
+        #     # Loop over the selected range of frames
+        #     for idx in range(0, frames_to_select):
+        #         input_frame = data_frames[idx]
 
-                for cam_id in [0, 1, 2, 3]:
-                    frame = copy.deepcopy(input_frame)
-                    ##print(f"\nProcessing frame {idx}: {frame}")
-                    cam_params = load_config(cam_id, base_path_template, frame['date'])
-                    intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path_template)
-                    transformed_smpl_pose, transformed_smpl_trans = transform_smpl_to_camera_frame(frame['pose'], frame['trans'], cam_params)
-                    frame['pose'] = transformed_smpl_pose
-                    frame['trans'] = transformed_smpl_trans
-                    joints = render_smpl(transformed_smpl_pose, transformed_smpl_trans, frame['betas'])
-                    joints_numpy = [joint.cpu().numpy() for joint in joints]
-                    frame['joints'] = joints_numpy
-                    transformed_obj_pose, transformed_obj_trans =  transform_object_to_camera_frame(frame['obj_pose'], frame['obj_trans'], cam_params)
-                    frame['obj_pose'] = transformed_obj_pose  
-                    frame['obj_trans'] = transformed_obj_trans
-                    distances = np.asarray([np.linalg.norm(transformed_obj_trans - joint) for joint in joints_numpy])       
-                    frame['distances'] = distances
+        #         for cam_id in [0, 1, 2, 3]:
+        #             frame = copy.deepcopy(input_frame)
+        #             ##print(f"\nProcessing frame {idx}: {frame}")
+        #             cam_params = load_config(cam_id, base_path_template, frame['date'])
+        #             intrinsics_cam, distortion_cam = load_intrinsics_and_distortion(cam_id, base_path_template)
+        #             transformed_smpl_pose, transformed_smpl_trans = transform_smpl_to_camera_frame(frame['pose'], frame['trans'], cam_params)
+        #             frame['pose'] = transformed_smpl_pose
+        #             frame['trans'] = transformed_smpl_trans
+        #             joints = render_smpl(transformed_smpl_pose, transformed_smpl_trans, frame['betas'])
+        #             joints_numpy = [joint.cpu().numpy() for joint in joints]
+        #             frame['joints'] = joints_numpy
+        #             transformed_obj_pose, transformed_obj_trans =  transform_object_to_camera_frame(frame['obj_pose'], frame['obj_trans'], cam_params)
+        #             frame['obj_pose'] = transformed_obj_pose  
+        #             frame['obj_trans'] = transformed_obj_trans
+        #             distances = np.asarray([np.linalg.norm(transformed_obj_trans - joint) for joint in joints_numpy])       
+        #             frame['distances'] = distances
 
-                    # selected_file_path_smpl_trace = os.path.join(base_path_trace,label+f".{cam_id}.color.mp4.npz")
+        #             # selected_file_path_smpl_trace = os.path.join(base_path_trace,label+f".{cam_id}.color.mp4.npz")
 
-                    # with np.load(selected_file_path_smpl_trace, allow_pickle=True) as data_smpl_trace:
-                    #     outputs = data_smpl_trace['outputs'].item()  # Access the 'outputs' dictionary
+        #             # with np.load(selected_file_path_smpl_trace, allow_pickle=True) as data_smpl_trace:
+        #             #     outputs = data_smpl_trace['outputs'].item()  # Access the 'outputs' dictionary
 
-                    #     pose_trace = outputs['smpl_thetas']
-                    #     joints_trace = outputs['j3d'][:,:24,:] 
-                    #     trans_trace = outputs['j3d'][:,0,:]
-                    #     betas_trace = outputs['smpl_betas']
-                    #     image_paths = data_smpl_trace['imgpaths']
+        #             #     pose_trace = outputs['smpl_thetas']
+        #             #     joints_trace = outputs['j3d'][:,:24,:] 
+        #             #     trans_trace = outputs['j3d'][:,0,:]
+        #             #     betas_trace = outputs['smpl_betas']
+        #             #     image_paths = data_smpl_trace['imgpaths']
                     
-                    #     total_frames = int(pose_trace.shape[0])
+        #             #     total_frames = int(pose_trace.shape[0])
 
 
-                    #     def find_idx_global(timestamp, fps=30):
-                    #         # Split the timestamp into seconds and milliseconds
-                    #         parts = timestamp[1:].split('.')
-                    #         seconds = int(parts[0])
-                    #         milliseconds = int(parts[1])
+        #             #     def find_idx_global(timestamp, fps=30):
+        #             #         # Split the timestamp into seconds and milliseconds
+        #             #         parts = timestamp[1:].split('.')
+        #             #         seconds = int(parts[0])
+        #             #         milliseconds = int(parts[1])
 
-                    #         # Convert the timestamp into a frame number
-                    #         glb_idx = seconds * fps + int(round(milliseconds * fps / 1000))
-                    #         #glb_idx = frame_number
+        #             #         # Convert the timestamp into a frame number
+        #             #         glb_idx = seconds * fps + int(round(milliseconds * fps / 1000))
+        #             #         #glb_idx = frame_number
 
-                    #         return glb_idx
+        #             #         return glb_idx
 
-                    #     def find_idx_no_int(idx, N):
-                    #         return math.floor(idx / N)
+        #             #     def find_idx_no_int(idx, N):
+        #             #         return math.floor(idx / N)
 
-                    #     # The idx_
-                    #     idx_no_int = find_idx_no_int(idx, N)
-                    #     idx_global = find_idx_global(timestamps[idx_no_int])
+        #             #     # The idx_
+        #             #     idx_no_int = find_idx_no_int(idx, N)
+        #             #     idx_global = find_idx_global(timestamps[idx_no_int])
 
-                    #     if idx_global + 1 <= total_frames:
-                    #         frame['img'] = image_paths[idx_global]
-                    #         frame['pose_trace'] = pose_trace[idx_global,:]
-                    #         frame['trans_trace'] = trans_trace[idx_global,:]
-                    #         frame['betas_trace'] = betas_trace[idx_global,:]
-                    #         frame['joints_trace'] = joints_trace[idx_global,:]
+        #             #     if idx_global + 1 <= total_frames:
+        #             #         frame['img'] = image_paths[idx_global]
+        #             #         frame['pose_trace'] = pose_trace[idx_global,:]
+        #             #         frame['trans_trace'] = trans_trace[idx_global,:]
+        #             #         frame['betas_trace'] = betas_trace[idx_global,:]
+        #             #         frame['joints_trace'] = joints_trace[idx_global,:]
 
-                    #         # Interpolation of pose_trace, trans_trace, joints_trace
-                    #         # Interpolation possible from idx = 1 onward, for the previous value, every N = 2
-                    #         # Indexes is even, 
-                    #         # Update
+        #             #         # Interpolation of pose_trace, trans_trace, joints_trace
+        #             #         # Interpolation possible from idx = 1 onward, for the previous value, every N = 2
+        #             #         # Indexes is even, 
+        #             #         # Update
 
-                    #         if idx % N == 0 and idx >= 2:  # Check if idx is divisible by N
-                    #             # Update the previous based on the second to last and last. Only linear interpolation as we deal with PC. At 1/2.
-                    #             cam_lists[cam_id][-1]['joints_trace'] = linear_interpolate(cam_lists[cam_id][-N]['joints_trace'], frame['joints_trace'], 1/N)
-                    #             cam_lists[cam_id][-1]['trans_trace'] = linear_interpolate(cam_lists[cam_id][-N]['trans_trace'], frame['trans_trace'], 1/N)
-                    #             cam_lists[cam_id][-1]['pose_trace'] = slerp_rotations(cam_lists[cam_id][-N]['pose_trace'], frame['pose_trace'], 1/N)
-                    #     else:
-                    #         # Delete all frames
-                    #         del frame
+        #             #         if idx % N == 0 and idx >= 2:  # Check if idx is divisible by N
+        #             #             # Update the previous based on the second to last and last. Only linear interpolation as we deal with PC. At 1/2.
+        #             #             cam_lists[cam_id][-1]['joints_trace'] = linear_interpolate(cam_lists[cam_id][-N]['joints_trace'], frame['joints_trace'], 1/N)
+        #             #             cam_lists[cam_id][-1]['trans_trace'] = linear_interpolate(cam_lists[cam_id][-N]['trans_trace'], frame['trans_trace'], 1/N)
+        #             #             cam_lists[cam_id][-1]['pose_trace'] = slerp_rotations(cam_lists[cam_id][-N]['pose_trace'], frame['pose_trace'], 1/N)
+        #             #     else:
+        #             #         # Delete all frames
+        #             #         del frame
                 
-                    if 'frame' in locals():
-                        cam_lists[cam_id].append(frame)
+        #             if 'frame' in locals():
+        #                 cam_lists[cam_id].append(frame)
 
             # scene_boundaries = []
 
@@ -541,83 +541,83 @@ if __name__ == "__main__":
 
             return transformed_pose, transformed_trans
         
-        def render_smpl(transformed_pose, transformed_trans, betas):
+        # def render_smpl(transformed_pose, transformed_trans, betas):
         
-            ##print("Start of render_smpl function.")
+        #     ##print("Start of render_smpl function.")
             
-            batch_size = 1
-            ##print(f"batch_size: {batch_size}")
+        #     batch_size = 1
+        #     ##print(f"batch_size: {batch_size}")
 
-            # Create the SMPL layer
-            smpl_layer = SMPL_Layer(
-                center_idx=0,
-                gender='male',
-                model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
-            ##print("SMPL_Layer created.")
+        #     # Create the SMPL layer
+        #     smpl_layer = SMPL_Layer(
+        #         center_idx=0,
+        #         gender='male',
+        #         model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
+        #     ##print("SMPL_Layer created.")
 
-            # Process pose parameters
-            pose_params_start = torch.tensor(transformed_pose[:3], dtype=torch.float32)
-            pose_params_rest = torch.tensor(transformed_pose[3:72], dtype=torch.float32)
-            pose_params_rest[-6:] = 0
-            pose_params = torch.cat([pose_params_start, pose_params_rest]).unsqueeze(0).repeat(batch_size, 1)
-            ##print(f"pose_params shape: {pose_params.shape}")
+        #     # Process pose parameters
+        #     pose_params_start = torch.tensor(transformed_pose[:3], dtype=torch.float32)
+        #     pose_params_rest = torch.tensor(transformed_pose[3:72], dtype=torch.float32)
+        #     pose_params_rest[-6:] = 0
+        #     pose_params = torch.cat([pose_params_start, pose_params_rest]).unsqueeze(0).repeat(batch_size, 1)
+        #     ##print(f"pose_params shape: {pose_params.shape}")
 
-            shape_params = torch.tensor(betas, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-            ##print(f"shape_params shape: {shape_params.shape}")
+        #     shape_params = torch.tensor(betas, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
+        #     ##print(f"shape_params shape: {shape_params.shape}")
 
-            obj_trans = torch.tensor(transformed_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
-            ##print(f"obj_trans shape: {obj_trans.shape}")
+        #     obj_trans = torch.tensor(transformed_trans, dtype=torch.float32).unsqueeze(0).repeat(batch_size, 1)
+        #     ##print(f"obj_trans shape: {obj_trans.shape}")
 
-            # GPU mode
-            cuda = torch.cuda.is_available()
-            ##print(f"CUDA available: {cuda}")
-            device = torch.device("cuda:0" if cuda else "cpu")
-            ##print(f"Device: {device}")
+        #     # GPU mode
+        #     cuda = torch.cuda.is_available()
+        #     ##print(f"CUDA available: {cuda}")
+        #     device = torch.device("cuda:0" if cuda else "cpu")
+        #     ##print(f"Device: {device}")
             
-            pose_params = pose_params.to(device)
-            shape_params = shape_params.to(device)
-            obj_trans = obj_trans.to(device)
-            smpl_layer = smpl_layer.to(device)
-            ##print("All tensors and models moved to device.")
+        #     pose_params = pose_params.to(device)
+        #     shape_params = shape_params.to(device)
+        #     obj_trans = obj_trans.to(device)
+        #     smpl_layer = smpl_layer.to(device)
+        #     ##print("All tensors and models moved to device.")
 
-            # Forward from the SMPL layer
-            verts, J = smpl_layer(pose_params, th_betas=shape_params, th_trans=obj_trans)
+        #     # Forward from the SMPL layer
+        #     verts, J = smpl_layer(pose_params, th_betas=shape_params, th_trans=obj_trans)
 
-            J = J.squeeze(0)
-            # Extracting joints from SMPL skeleton
-            pelvis = J[0]
-            left_hip = J[1]
-            right_hip = J[2]
-            spine1 = J[3]
-            left_knee = J[4]
-            right_knee = J[5]
-            spine2 = J[6]
-            left_ankle = J[7]
-            right_ankle = J[8]
-            spine3 = J[9]
-            left_foot = J[10]
-            right_foot = J[11]
-            neck = J[12]
-            left_collar = J[13]
-            right_collar = J[14]
-            head = J[15]
-            left_shoulder = J[16]
-            right_shoulder = J[17]
-            left_elbow = J[18]
-            right_elbow = J[19]
-            left_wrist = J[20]
-            right_wrist = J[21]
-            left_hand = J[22]
-            right_hand = J[23]
+        #     J = J.squeeze(0)
+        #     # Extracting joints from SMPL skeleton
+        #     pelvis = J[0]
+        #     left_hip = J[1]
+        #     right_hip = J[2]
+        #     spine1 = J[3]
+        #     left_knee = J[4]
+        #     right_knee = J[5]
+        #     spine2 = J[6]
+        #     left_ankle = J[7]
+        #     right_ankle = J[8]
+        #     spine3 = J[9]
+        #     left_foot = J[10]
+        #     right_foot = J[11]
+        #     neck = J[12]
+        #     left_collar = J[13]
+        #     right_collar = J[14]
+        #     head = J[15]
+        #     left_shoulder = J[16]
+        #     right_shoulder = J[17]
+        #     left_elbow = J[18]
+        #     right_elbow = J[19]
+        #     left_wrist = J[20]
+        #     right_wrist = J[21]
+        #     left_hand = J[22]
+        #     right_hand = J[23]
 
-            # Creating a list with all joints
-            selected_joints = [pelvis, left_hip, right_hip, spine1, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
-                            left_foot, right_foot, neck, left_collar, right_collar, head, left_shoulder, right_shoulder, 
-                            left_elbow, right_elbow, left_wrist, right_wrist, left_hand, right_hand]
+        #     # Creating a list with all joints
+        #     selected_joints = [pelvis, left_hip, right_hip, spine1, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
+        #                     left_foot, right_foot, neck, left_collar, right_collar, head, left_shoulder, right_shoulder, 
+        #                     left_elbow, right_elbow, left_wrist, right_wrist, left_hand, right_hand]
             
-            # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
-            #                  left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]      
-            return selected_joints
+        #     # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
+        #     #                  left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]      
+        #     return selected_joints
 
         def normalize(vec, min_range, max_range, min_val, max_val):
             normalized_vec = (vec - min_val) / (max_val - min_val) * (max_range - min_range) + min_range
@@ -726,116 +726,116 @@ if __name__ == "__main__":
             
             return relative_rotations
 
-        def evaluate_camera(y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans, obj_template_path):
-            """
-            Evaluate the performance metrics for a given camera.
+        # def evaluate_camera(y_hat_stage3_pos, y_hat_stage3_trans, y_stage3_pos, y_stage3_trans, obj_template_path):
+        #     """
+        #     Evaluate the performance metrics for a given camera.
 
-            Parameters:
-            cam_id (int): Camera ID.
-            y_hat_stage3_pos (numpy array): Predicted position.
-            y_hat_stage3_trans (numpy array): Predicted transformation.
-            y_stage3_pos (numpy array): Ground truth position.
-            y_stage3_trans (numpy array): Ground truth transformation.
-            obj_template_path (str): Path to the object template.
+        #     Parameters:
+        #     cam_id (int): Camera ID.
+        #     y_hat_stage3_pos (numpy array): Predicted position.
+        #     y_hat_stage3_trans (numpy array): Predicted transformation.
+        #     y_stage3_pos (numpy array): Ground truth position.
+        #     y_stage3_trans (numpy array): Ground truth transformation.
+        #     obj_template_path (str): Path to the object template.
 
-            Returns:
-            dict: Dictionary containing ADD, ADD-S, and CD values.
-            """
+        #     Returns:
+        #     dict: Dictionary containing ADD, ADD-S, and CD values.
+        #     """
 
-            def compute_cd(candidate_vertices, GT_vertices):
-                # Convert lists to numpy arrays for efficient computation
-                A = np.array(GT_vertices)
-                B = np.array(candidate_vertices)
+        #     def compute_cd(candidate_vertices, GT_vertices):
+        #         # Convert lists to numpy arrays for efficient computation
+        #         A = np.array(GT_vertices)
+        #         B = np.array(candidate_vertices)
 
-                # Compute squared distances from each point in A to the closest point in B, and vice versa
-                A_B_dist = np.sum([min(np.sum((a - B)**2, axis=1)) for a in A])
-                B_A_dist = np.sum([min(np.sum((b - A)**2, axis=1)) for b in B])
+        #         # Compute squared distances from each point in A to the closest point in B, and vice versa
+        #         A_B_dist = np.sum([min(np.sum((a - B)**2, axis=1)) for a in A])
+        #         B_A_dist = np.sum([min(np.sum((b - A)**2, axis=1)) for b in B])
 
-                # Compute the Chamfer Distance
-                chamfer_distance = A_B_dist / len(A) + B_A_dist / len(B)
+        #         # Compute the Chamfer Distance
+        #         chamfer_distance = A_B_dist / len(A) + B_A_dist / len(B)
 
-                return chamfer_distance
+        #         return chamfer_distance
 
-            def add_err(pred_pts, gt_pts):
-                """
-                Average Distance of Model Points for objects with no indistinguishable views
-                - by Hinterstoisser et al. (ACCV 2012).
-                """
-                #   pred_pts = (pred@to_homo(model_pts).T).T[:,:3]
-                #   gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
-                e = np.linalg.norm(pred_pts - gt_pts, axis=1).mean()
-                return e
+        #     def add_err(pred_pts, gt_pts):
+        #         """
+        #         Average Distance of Model Points for objects with no indistinguishable views
+        #         - by Hinterstoisser et al. (ACCV 2012).
+        #         """
+        #         #   pred_pts = (pred@to_homo(model_pts).T).T[:,:3]
+        #         #   gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
+        #         e = np.linalg.norm(pred_pts - gt_pts, axis=1).mean()
+        #         return e
 
-            def adi_err(pred_pts, gt_pts):
-                """
-                @pred: 4x4 mat
-                @gt:
-                @model: (N,3)
-                """
-                # = (pred@to_homo(model_pts).T).T[:,:3]
-                #gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
-                nn_index = cKDTree(pred_pts)
-                nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
-                e = nn_dists.mean()
-                return e
+        #     def adi_err(pred_pts, gt_pts):
+        #         """
+        #         @pred: 4x4 mat
+        #         @gt:
+        #         @model: (N,3)
+        #         """
+        #         # = (pred@to_homo(model_pts).T).T[:,:3]
+        #         #gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
+        #         nn_index = cKDTree(pred_pts)
+        #         nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
+        #         e = nn_dists.mean()
+        #         return e
             
-            # only the first from the batch
-            transformed_object = plot_obj_in_camera_frame(y_hat_stage3_pos[0].cpu().numpy(), y_hat_stage3_trans[0].cpu().numpy(), obj_template_path)
-            GT_obj = plot_obj_in_camera_frame(y_stage3_pos[0].cpu().numpy(), y_stage3_trans[0].cpu().numpy(), obj_template_path)
+        #     # only the first from the batch
+        #     transformed_object = plot_obj_in_camera_frame(y_hat_stage3_pos[0].cpu().numpy(), y_hat_stage3_trans[0].cpu().numpy(), obj_template_path)
+        #     GT_obj = plot_obj_in_camera_frame(y_stage3_pos[0].cpu().numpy(), y_stage3_trans[0].cpu().numpy(), obj_template_path)
 
-            # Convert the meshes to point clouds
-            GT_obj_pcd = o3d.geometry.PointCloud()
-            GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
+        #     # Convert the meshes to point clouds
+        #     GT_obj_pcd = o3d.geometry.PointCloud()
+        #     GT_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(GT_obj.vertices))
 
-            candidate_obj_pcd = o3d.geometry.PointCloud()
-            candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
+        #     candidate_obj_pcd = o3d.geometry.PointCloud()
+        #     candidate_obj_pcd.points = o3d.utility.Vector3dVector(np.asarray(transformed_object.vertices))
 
-            # Convert to numpy arrays
-            GT_obj_np = np.asarray(GT_obj_pcd.points)
-            candidate_obj_np = np.asarray(candidate_obj_pcd.points)
+        #     # Convert to numpy arrays
+        #     GT_obj_np = np.asarray(GT_obj_pcd.points)
+        #     candidate_obj_np = np.asarray(candidate_obj_pcd.points)
 
-            num_points = GT_obj_np.shape[0]
-            num_sampled_points = 10  # Example: 10 sampled points
+        #     num_points = GT_obj_np.shape[0]
+        #     num_sampled_points = 10  # Example: 10 sampled points
 
-            np.random.seed(0)
-            random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
+        #     np.random.seed(0)
+        #     random_indices = np.random.choice(num_points, num_sampled_points, replace=False)
 
-            GT_vertices = GT_obj_np[random_indices]
-            candidate_vertices = candidate_obj_np[random_indices]
+        #     GT_vertices = GT_obj_np[random_indices]
+        #     candidate_vertices = candidate_obj_np[random_indices]
 
-            add = add_err(candidate_vertices, GT_vertices)
-            add_s = adi_err(candidate_vertices, GT_vertices)
-            cd = compute_cd(candidate_vertices, GT_vertices)
+        #     add = add_err(candidate_vertices, GT_vertices)
+        #     add_s = adi_err(candidate_vertices, GT_vertices)
+        #     cd = compute_cd(candidate_vertices, GT_vertices)
 
-            return add, add_s, cd
+        #     return add, add_s, cd
 
-        def compute_auc(rec, max_val=0.1):
-            if len(rec) == 0:
-                return 0
-            rec = np.sort(np.array(rec))
-            n = len(rec)
-            #print(n)
-            prec = np.arange(1, n + 1) / float(n)
-            rec = rec.reshape(-1)
-            prec = prec.reshape(-1)
-            index = np.where(rec < max_val)[0]
-            rec = rec[index]
-            prec = prec[index]
+        # def compute_auc(rec, max_val=0.1):
+        #     if len(rec) == 0:
+        #         return 0
+        #     rec = np.sort(np.array(rec))
+        #     n = len(rec)
+        #     #print(n)
+        #     prec = np.arange(1, n + 1) / float(n)
+        #     rec = rec.reshape(-1)
+        #     prec = prec.reshape(-1)
+        #     index = np.where(rec < max_val)[0]
+        #     rec = rec[index]
+        #     prec = prec[index]
 
-            if len(prec) == 0:
-                return 0
+        #     if len(prec) == 0:
+        #         return 0
 
-            mrec = [0, *list(rec), max_val]
-            # Only add prec[-1] if prec is not empty
-            mpre = [0, *list(prec)] + ([prec[-1]] if len(prec) > 0 else [])
+        #     mrec = [0, *list(rec), max_val]
+        #     # Only add prec[-1] if prec is not empty
+        #     mpre = [0, *list(prec)] + ([prec[-1]] if len(prec) > 0 else [])
 
-            for i in range(1, len(mpre)):
-                mpre[i] = max(mpre[i], mpre[i - 1])
-            mpre = np.array(mpre)
-            mrec = np.array(mrec)
-            i = np.where(mrec[1:] != mrec[:len(mrec) - 1])[0] + 1
-            ap = np.sum((mrec[i] - mrec[i - 1]) * mpre[i]) / max_val
-            return ap
+        #     for i in range(1, len(mpre)):
+        #         mpre[i] = max(mpre[i], mpre[i - 1])
+        #     mpre = np.array(mpre)
+        #     mrec = np.array(mrec)
+        #     i = np.where(mrec[1:] != mrec[:len(mrec) - 1])[0] + 1
+        #     ap = np.sum((mrec[i] - mrec[i - 1]) * mpre[i]) / max_val
+        #     return ap
 
         class CustomCyclicLR(_LRScheduler):
             def __init__(self, optimizer, base_lr=5e-9, max_lr=5e-5, step_size=2000, mode='triangular', gamma=1.0, last_epoch=-1):
@@ -1820,19 +1820,19 @@ if __name__ == "__main__":
                 #     'frequency': 1
                 # }
 
-                scheduler = {
-                'scheduler': CustomCyclicLR(optimizer, base_lr=1e-7, max_lr=5e-3, step_size=1, mode='exp_range'),
-                'interval': 'epoch',  # step-based updates i.e. batch
-                #'monitor' : 'avg_val_loss',
-                'name': 'custom_clr'
-                }
-
                 # scheduler = {
-                #     'scheduler': CustomCosineLR(optimizer, T_max=100, eta_min=1e-7),
-                #     'interval': 'step',  # epoch-based updates
-                #     'monitor' : 'avg_val_loss',
-                #     'name': 'custom_cosine_lr'
+                # 'scheduler': CustomCyclicLR(optimizer, base_lr=1e-7, max_lr=5e-3, step_size=1, mode='exp_range'),
+                # 'interval': 'epoch',  # step-based updates i.e. batch
+                # #'monitor' : 'avg_val_loss',
+                # 'name': 'custom_clr'
                 # }
+
+                scheduler = {
+                    'scheduler': CustomCosineLR(optimizer, T_max=100, eta_min=1e-7),
+                    'interval': 'step',  # epoch-based updates
+                    'monitor' : 'avg_val_loss',
+                    'name': 'custom_cosine_lr'
+                }
 
                 self.optimizer = optimizer  # store optimizer as class variable for logging learning rate
                 self.lr_scheduler = scheduler['scheduler']  # store scheduler as class variable for updating in on_validation_epoch_end
@@ -1848,229 +1848,229 @@ if __name__ == "__main__":
         base_path_template = "/scratch_net/biwidl307_second/lgermano/behave"
 
 
-        # Check if the data has already been saved
-        if os.path.exists(data_file_path) and False:
-            # Load the saved data
-            with open(data_file_path, 'rb') as f:
-                dataset = pickle.load(f)
-        elif False:
-            # Create a dataset
+        # # Check if the data has already been saved
+        # if os.path.exists(data_file_path) and False:
+        #     # Load the saved data
+        #     with open(data_file_path, 'rb') as f:
+        #         dataset = pickle.load(f)
+        # elif False:
+        #     # Create a dataset
 
-            # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
-            N = 1
+        #     # Test sequences should not be interpolated ('Date03'), set N=1, else N=2
+        #     N = 1
 
-            wandb.run.name = wandb.run.name + name
+        #     wandb.run.name = wandb.run.name + name
 
-            base_path = "/scratch_net/biwidl307_second/lgermano/behave"
-            # Need to create pickles for non box
-            #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
-            processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
-            #labels_existing = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
-            #labels = labels[:2]
-            # date = "Date07"
-            # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
-            #print("Processing only ", date)
+        #     base_path = "/scratch_net/biwidl307_second/lgermano/behave"
+        #     # Need to create pickles for non box
+        #     #labels = sorted([label.split('.')[0] for label in os.listdir(base_path_trace) if 'boxlarge' in label and '.color.mp4.npz' in label and 'Date03' not in label and 'boxmedium' not in label])
+        #     processed_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+        #     #labels_existing = list(sorted(set([label.split('.')[0] for label in os.listdir(processed_path)])))
+        #     #labels = labels[:2]
+        #     # date = "Date07"
+        #     # labels = sorted(set([label for label in os.listdir(base_path_annotations) if date in label]))
+        #     #print("Processing only ", date)
 
-            # labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
-            # "Date01_Sub01_boxmedium_hand",
-            # "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
-            # "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
-            # "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
-            # "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
-            # "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
-            # "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
-            # "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
-            # "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
-            # ]
+        #     # labels = ["Date03_Sub03_boxmedium", "Date03_Sub04_boxmedium", "Date03_Sub05_boxmedium",
+        #     # "Date01_Sub01_boxmedium_hand",
+        #     # "Date04_Sub05_boxsmall", "Date05_Sub06_toolbox", "Date07_Sub04_boxlong",
+        #     # "Date02_Sub02_boxmedium_hand", "Date04_Sub05_boxtiny", "Date06_Sub07_boxlarge", "Date07_Sub04_boxmedium",
+        #     # "Date03_Sub03_boxmedium", "Date04_Sub05_toolbox", "Date06_Sub07_boxlong", "Date07_Sub04_boxsmall",
+        #     # "Date03_Sub04_boxmedium", "Date05_Sub06_boxlarge", "Date06_Sub07_boxmedium", "Date07_Sub04_boxtiny",
+        #     # "Date03_Sub05_boxmedium", "Date05_Sub06_boxlong", "Date06_Sub07_boxsmall", "Date07_Sub08_boxmedium",
+        #     # "Date04_Sub05_boxlarge", "Date05_Sub06_boxmedium", "Date06_Sub07_boxtiny",
+        #     # "Date04_Sub05_boxlong", "Date05_Sub06_boxsmall", "Date06_Sub07_toolbox",
+        #     # "Date05_Sub06_boxtiny", "Date07_Sub04_boxlarge"
+        #     # ]
 
-            # labels = [
-            #     'Date03_Sub03_yogamat',
-            #     'Date03_Sub03_boxlarge',
-            #     'Date03_Sub03_boxlong',
-            #     'Date03_Sub03_boxmedium',
-            #     'Date03_Sub03_boxsmall',
-            #     'Date03_Sub03_boxtiny',
-            #     'Date03_Sub03_chairblack_hand',
-            #     'Date03_Sub03_chairblack_lift',
-            #     'Date03_Sub03_chairblack_sit',
-            #     'Date03_Sub03_chairblack_sitstand',
-            #     'Date03_Sub03_chairwood_hand',
-            #     'Date03_Sub03_tablesquare_sit',
-            #     'Date03_Sub03_toolbox',
-            #     'Date03_Sub03_trashbin',
-            #     'Date03_Sub04_boxlarge',
-            #     'Date03_Sub04_boxlong',
-            #     'Date03_Sub04_boxmedium',
-            #     'Date03_Sub04_boxsmall',
-            #     'Date03_Sub04_boxtiny',
-            #     'Date03_Sub04_chairblack_hand',
-            #     'Date03_Sub04_tablesmall_lean',
-            #     'Date03_Sub04_tablesmall_lift',
-            #     'Date03_Sub04_tablesquare_hand',
-            #     'Date03_Sub04_tablesquare_lift',
-            #     'Date03_Sub04_tablesquare_sit',
-            #     'Date03_Sub04_toolbox',
-            #     'Date03_Sub04_trashbin',
-            #     'Date03_Sub04_yogamat',
-            #     'Date03_Sub05_boxlarge',
-            #     'Date03_Sub05_boxlong',
-            #     'Date03_Sub05_boxmedium',
-            #     'Date03_Sub05_boxsmall',
-            #     'Date03_Sub05_boxtiny',
-            #     'Date03_Sub05_toolbox',
-            #     'Date03_Sub05_trashbin',
-            #     'Date03_Sub05_yogamat'
-            # ]
+        #     # labels = [
+        #     #     'Date03_Sub03_yogamat',
+        #     #     'Date03_Sub03_boxlarge',
+        #     #     'Date03_Sub03_boxlong',
+        #     #     'Date03_Sub03_boxmedium',
+        #     #     'Date03_Sub03_boxsmall',
+        #     #     'Date03_Sub03_boxtiny',
+        #     #     'Date03_Sub03_chairblack_hand',
+        #     #     'Date03_Sub03_chairblack_lift',
+        #     #     'Date03_Sub03_chairblack_sit',
+        #     #     'Date03_Sub03_chairblack_sitstand',
+        #     #     'Date03_Sub03_chairwood_hand',
+        #     #     'Date03_Sub03_tablesquare_sit',
+        #     #     'Date03_Sub03_toolbox',
+        #     #     'Date03_Sub03_trashbin',
+        #     #     'Date03_Sub04_boxlarge',
+        #     #     'Date03_Sub04_boxlong',
+        #     #     'Date03_Sub04_boxmedium',
+        #     #     'Date03_Sub04_boxsmall',
+        #     #     'Date03_Sub04_boxtiny',
+        #     #     'Date03_Sub04_chairblack_hand',
+        #     #     'Date03_Sub04_tablesmall_lean',
+        #     #     'Date03_Sub04_tablesmall_lift',
+        #     #     'Date03_Sub04_tablesquare_hand',
+        #     #     'Date03_Sub04_tablesquare_lift',
+        #     #     'Date03_Sub04_tablesquare_sit',
+        #     #     'Date03_Sub04_toolbox',
+        #     #     'Date03_Sub04_trashbin',
+        #     #     'Date03_Sub04_yogamat',
+        #     #     'Date03_Sub05_boxlarge',
+        #     #     'Date03_Sub05_boxlong',
+        #     #     'Date03_Sub05_boxmedium',
+        #     #     'Date03_Sub05_boxsmall',
+        #     #     'Date03_Sub05_boxtiny',
+        #     #     'Date03_Sub05_toolbox',
+        #     #     'Date03_Sub05_trashbin',
+        #     #     'Date03_Sub05_yogamat'
+        #     # ]
 
-            labels = [
-                'Date03_Sub04_backpack_hand',
-                'Date03_Sub04_chairblack_liftreal',
-                'Date05_Sub06_suitcase_hand',
-                'Date05_Sub06_chairwood_sit',
-                'Date03_Sub05_chairwood_part2',
-                'Date03_Sub04_yogaball_play',
-                'Date03_Sub04_boxtiny',
-                'Date05_Sub06_trashbin',
-                'Date05_Sub06_toolbox',
-                'Date03_Sub05_plasticcontainer',
-                'Date03_Sub04_backpack_back',
-                'Date03_Sub05_tablesquare',
-                'Date03_Sub04_chairwood_lift',
-                'Date03_Sub05_yogaball',
-                'Date03_Sub04_stool_move',
-                'Date03_Sub04_plasticcontainer_lift',
-                'Date03_Sub04_chairwood_hand',
-                'Date05_Sub06_tablesmall_lean',
-                'Date02_Sub02_monitor_move2',
-                'Date03_Sub04_yogaball_sit',
-                'Date05_Sub06_plasticcontainer',
-                'Date05_Sub06_chairwood_lift',
-                'Date03_Sub04_chairblack_sit',
-                'Date05_Sub06_yogaball_sit',
-                'Date06_Sub07_yogamat',
-                'Date05_Sub06_tablesquare_sit',
-                'Date03_Sub05_backpack',
-                'Date06_Sub07_tablesquare_sit',
-                'Date03_Sub04_chairwood_sit',
-                'Date05_Sub06_yogaball_play',
-                'Date02_Sub02_toolbox_part2',
-                'Date05_Sub06_monitor_hand',
-                'Date06_Sub07_yogaball_sit',
-                'Date05_Sub06_suitcase_lift',
-                'Date03_Sub05_chairblack',
-                'Date05_Sub06_chairwood_hand',
-                'Date03_Sub04_stool_sit',
-                'Date03_Sub05_chairwood',
-                'Date03_Sub04_boxtiny_part2',
-                'Date06_Sub07_tablesmall_lean',
-                'Date03_Sub04_tablesmall_hand',
-                'Date03_Sub05_stool',
-                'Date02_Sub02_monitor_move',
-                'Date04_Sub05_monitor_part2',
-                'Date06_Sub07_tablesquare_lift',
-                'Date06_Sub07_trashbin',
-                'Date06_Sub07_toolbox',
-                'Date06_Sub07_tablesmall_lift',
-                'Date03_Sub05_suitcase',
-                'Date05_Sub06_stool_lift',
-                'Date06_Sub07_tablesmall_move',
-                'Date05_Sub06_tablesquare_lift',
-                'Date01_Sub01_yogamat_hand',
-                'Date06_Sub07_yogaball_play',
-                'Date05_Sub06_monitor_move',
-                'Date03_Sub04_suitcase_lift',
-                'Date05_Sub06_yogamat',
-                'Date03_Sub03_chairblack_sitstand',
-                'Date05_Sub06_tablesmall_hand',
-                'Date03_Sub04_suitcase_ground',
-                'Date06_Sub07_tablesquare_move',
-                'Date03_Sub05_monitor',
-                'Date03_Sub04_yogaball_play2',
-                'Date05_Sub06_stool_sit',
-                'Date05_Sub06_tablesquare_move',
-                'Date01_Sub01_plasticcontainer',
-                'Date03_Sub05_tablesmall',
-                'Date03_Sub04_monitor_hand',
-                'Date06_Sub07_suitcase_move',
-                'Date04_Sub05_monitor_sit',
-                'Date02_Sub02_toolbox',
-                'Date03_Sub04_backpack_hug',
-                'Date03_Sub04_monitor_move',
-                'Date05_Sub06_tablesmall_lift'
-            ]
+        #     labels = [
+        #         'Date03_Sub04_backpack_hand',
+        #         'Date03_Sub04_chairblack_liftreal',
+        #         'Date05_Sub06_suitcase_hand',
+        #         'Date05_Sub06_chairwood_sit',
+        #         'Date03_Sub05_chairwood_part2',
+        #         'Date03_Sub04_yogaball_play',
+        #         'Date03_Sub04_boxtiny',
+        #         'Date05_Sub06_trashbin',
+        #         'Date05_Sub06_toolbox',
+        #         'Date03_Sub05_plasticcontainer',
+        #         'Date03_Sub04_backpack_back',
+        #         'Date03_Sub05_tablesquare',
+        #         'Date03_Sub04_chairwood_lift',
+        #         'Date03_Sub05_yogaball',
+        #         'Date03_Sub04_stool_move',
+        #         'Date03_Sub04_plasticcontainer_lift',
+        #         'Date03_Sub04_chairwood_hand',
+        #         'Date05_Sub06_tablesmall_lean',
+        #         'Date02_Sub02_monitor_move2',
+        #         'Date03_Sub04_yogaball_sit',
+        #         'Date05_Sub06_plasticcontainer',
+        #         'Date05_Sub06_chairwood_lift',
+        #         'Date03_Sub04_chairblack_sit',
+        #         'Date05_Sub06_yogaball_sit',
+        #         'Date06_Sub07_yogamat',
+        #         'Date05_Sub06_tablesquare_sit',
+        #         'Date03_Sub05_backpack',
+        #         'Date06_Sub07_tablesquare_sit',
+        #         'Date03_Sub04_chairwood_sit',
+        #         'Date05_Sub06_yogaball_play',
+        #         'Date02_Sub02_toolbox_part2',
+        #         'Date05_Sub06_monitor_hand',
+        #         'Date06_Sub07_yogaball_sit',
+        #         'Date05_Sub06_suitcase_lift',
+        #         'Date03_Sub05_chairblack',
+        #         'Date05_Sub06_chairwood_hand',
+        #         'Date03_Sub04_stool_sit',
+        #         'Date03_Sub05_chairwood',
+        #         'Date03_Sub04_boxtiny_part2',
+        #         'Date06_Sub07_tablesmall_lean',
+        #         'Date03_Sub04_tablesmall_hand',
+        #         'Date03_Sub05_stool',
+        #         'Date02_Sub02_monitor_move',
+        #         'Date04_Sub05_monitor_part2',
+        #         'Date06_Sub07_tablesquare_lift',
+        #         'Date06_Sub07_trashbin',
+        #         'Date06_Sub07_toolbox',
+        #         'Date06_Sub07_tablesmall_lift',
+        #         'Date03_Sub05_suitcase',
+        #         'Date05_Sub06_stool_lift',
+        #         'Date06_Sub07_tablesmall_move',
+        #         'Date05_Sub06_tablesquare_lift',
+        #         'Date01_Sub01_yogamat_hand',
+        #         'Date06_Sub07_yogaball_play',
+        #         'Date05_Sub06_monitor_move',
+        #         'Date03_Sub04_suitcase_lift',
+        #         'Date05_Sub06_yogamat',
+        #         'Date03_Sub03_chairblack_sitstand',
+        #         'Date05_Sub06_tablesmall_hand',
+        #         'Date03_Sub04_suitcase_ground',
+        #         'Date06_Sub07_tablesquare_move',
+        #         'Date03_Sub05_monitor',
+        #         'Date03_Sub04_yogaball_play2',
+        #         'Date05_Sub06_stool_sit',
+        #         'Date05_Sub06_tablesquare_move',
+        #         'Date01_Sub01_plasticcontainer',
+        #         'Date03_Sub05_tablesmall',
+        #         'Date03_Sub04_monitor_hand',
+        #         'Date06_Sub07_suitcase_move',
+        #         'Date04_Sub05_monitor_sit',
+        #         'Date02_Sub02_toolbox',
+        #         'Date03_Sub04_backpack_hug',
+        #         'Date03_Sub04_monitor_move',
+        #         'Date05_Sub06_tablesmall_lift'
+        #     ]
             
-            print(labels, flush=True)
-            #breakpoint()
-            dataset = []
+        #     print(labels, flush=True)
+        #     #breakpoint()
+        #     dataset = []
 
             
-            for label in labels:
-                if True: #label not in labels_existing:
-                    print("Processing label:", label, flush=True)
-                    selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
-                    selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
+        #     for label in labels:
+        #         if True: #label not in labels_existing:
+        #             print("Processing label:", label, flush=True)
+        #             selected_file_path_obj = os.path.join(base_path_annotations, label, "object_fit_all.npz")
+        #             selected_file_path_smpl = os.path.join(base_path_annotations, label, "smpl_fit_all.npz")
 
-                    print("Object file path:", selected_file_path_obj,flush=True)
-                    print("SMPL file path:", selected_file_path_smpl,flush=True)
+        #             print("Object file path:", selected_file_path_obj,flush=True)
+        #             print("SMPL file path:", selected_file_path_smpl,flush=True)
 
-                    all_data_frames = []
+        #             all_data_frames = []
 
-                    with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
-                        print("Loading object data",flush=True)
-                        obj_pose = data_obj['angles']
-                        obj_trans = data_obj['trans']
-                        timestamps = data_obj['frame_times']
-                        print("Object data loaded. Shape:", obj_pose.shape,flush=True)
+        #             with np.load(selected_file_path_obj, allow_pickle=True) as data_obj:
+        #                 print("Loading object data",flush=True)
+        #                 obj_pose = data_obj['angles']
+        #                 obj_trans = data_obj['trans']
+        #                 timestamps = data_obj['frame_times']
+        #                 print("Object data loaded. Shape:", obj_pose.shape,flush=True)
 
-                    with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
-                        print("Loading SMPL data",flush=True)
-                        pose = data_smpl['poses'][:,:72]  # SMPL model
-                        trans = data_smpl['trans']
-                        betas = data_smpl['betas']
-                        print("SMPL data loaded. Shape:", pose.shape,flush=True)
+        #             with np.load(selected_file_path_smpl, allow_pickle=True) as data_smpl:
+        #                 print("Loading SMPL data",flush=True)
+        #                 pose = data_smpl['poses'][:,:72]  # SMPL model
+        #                 trans = data_smpl['trans']
+        #                 betas = data_smpl['betas']
+        #                 print("SMPL data loaded. Shape:", pose.shape,flush=True)
 
-                    for idx in range(min(trans.shape[0], obj_trans.shape[0])):
-                        #print(f"Processing frame {idx}")
-                        frame_data = {}
-                        obj_name = label.split('_')[2]
-                        frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
-                        frame_data['scene'] = label
-                        frame_data['date'] = label.split('_')[0]
-                        frame_data['pose'] = pose[idx,:]
-                        frame_data['trans'] = trans[idx,:]
-                        frame_data['betas'] = betas[idx,:]
-                        frame_data['obj_pose'] = obj_pose[idx,:]
-                        frame_data['obj_trans'] = obj_trans[idx,:]
+        #             for idx in range(min(trans.shape[0], obj_trans.shape[0])):
+        #                 #print(f"Processing frame {idx}")
+        #                 frame_data = {}
+        #                 obj_name = label.split('_')[2]
+        #                 frame_data['obj_template_path'] = os.path.join(base_path_template, "objects", obj_name, obj_name + ".obj")
+        #                 frame_data['scene'] = label
+        #                 frame_data['date'] = label.split('_')[0]
+        #                 frame_data['pose'] = pose[idx,:]
+        #                 frame_data['trans'] = trans[idx,:]
+        #                 frame_data['betas'] = betas[idx,:]
+        #                 frame_data['obj_pose'] = obj_pose[idx,:]
+        #                 frame_data['obj_trans'] = obj_trans[idx,:]
 
-                        all_data_frames.append(frame_data)
+        #                 all_data_frames.append(frame_data)
 
-                    # Assuming interpolate_frames and project_frames are defined elsewhere in your script
-                    all_data_frames_int = interpolate_frames(all_data_frames, N)
-                    print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int),flush=True)
-                    del all_data_frames
+        #             # Assuming interpolate_frames and project_frames are defined elsewhere in your script
+        #             all_data_frames_int = interpolate_frames(all_data_frames, N)
+        #             print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int),flush=True)
+        #             del all_data_frames
 
-                    objects = project_frames(all_data_frames_int, timestamps, N)
-                    print("Projection done. Length of projected frames:", len(objects),flush=True)
-                    del all_data_frames_int
+        #             objects = project_frames(all_data_frames_int, timestamps, N)
+        #             print("Projection done. Length of projected frames:", len(objects),flush=True)
+        #             del all_data_frames_int
 
-                    for j in range(len(objects)):
-                        for k in range(len(objects[j])):
-                            a = objects[j][k]
-                            for key in a.keys():
-                                if hasattr(a[key], 'numpy'):
-                                    objects[j][k][key] = a[key].numpy()
-                                else:
-                                    objects[j][k][key] = a[key]
+        #             for j in range(len(objects)):
+        #                 for k in range(len(objects[j])):
+        #                     a = objects[j][k]
+        #                     for key in a.keys():
+        #                         if hasattr(a[key], 'numpy'):
+        #                             objects[j][k][key] = a[key].numpy()
+        #                         else:
+        #                             objects[j][k][key] = a[key]
 
 
-                    data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy/{label}.pkl'
-                    print(f"Saving data to {data_file_path}", flush=True)
-                    with open(data_file_path, 'wb') as f:
-                        pickle.dump(objects, f)
-                    print(f"Saved data for {label} to {data_file_path}", flush=True)
-                    #breakpoint()
-                    del objects
-                    gc.collect()
+        #             data_file_path = f'/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy/{label}.pkl'
+        #             print(f"Saving data to {data_file_path}", flush=True)
+        #             with open(data_file_path, 'wb') as f:
+        #                 pickle.dump(objects, f)
+        #             print(f"Saved data for {label} to {data_file_path}", flush=True)
+        #             #breakpoint()
+        #             del objects
+        #             gc.collect()
 
         # Include now Date03. No processing.
 
@@ -2116,10 +2116,10 @@ if __name__ == "__main__":
         
         # Combine wandb.run.name to create a unique name for the saved file
         #save_file_name = f"{wandb.run.name}_BEHAVE_singlebatch.pt"
-        save_file_name = f"magic-fog-3098progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_998_dataset_batch_overfit_test_batch_whole_dataset.pt"
+        #save_file_name = f"magic-fog-3098progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_998_dataset_batch_overfit_test_batch_whole_dataset.pt"
         #save_file_name = f"young-monkey-3115_overfit_test_batch_whole_dataset.pt"
         #save_file_name = f"peachy-brook-3086cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
-        #save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
+        save_file_name = f"trim-wind-3037cross_att_12_4_offsetbehave_cam2_notrace_12_offset.pt"
         #save_file_name = f"twilight-yogurt-3045cross_att_12_4behave_cam0123_notrace_offset.pt"
         #save_file_name = f"rare-sponge-3026cross_att_12_4_axis_angle_loss_from_checkpoint_pose_onlybehave_cam2_notrace_12.pt"
 
@@ -2204,7 +2204,10 @@ if __name__ == "__main__":
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_fiery-shadow-3101progressive_test_from_checkpoint_model_fresh-darkness-3095progressive_test_no_checkpoint_epoch_1170_TRUE_dataset_batch_data_info_epoch_90.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_radiant-leaf-3120_epoch_119.pt"
         #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_gallant-night-3161_epoch_276.pt"
-        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_rural-sponge-3163_epoch_1197.pt"
+        #model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_rural-sponge-3163_epoch_1197.pt"
+        
+        #cam2
+        model_path = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/model_toasty-feather-3189_epoch_0.pt"
         
         #Load the state dict from the checkpoint into the model
         checkpoint = torch.load(model_path, map_location=device)
@@ -2215,7 +2218,7 @@ if __name__ == "__main__":
         wandb_logger.watch(model_combined, log=None , log_freq=10)  # Log model weights and gradients
         # Initialize Trainer
         print("\nTraining\n", flush=True)
-        trainer = pl.Trainer(max_epochs=wandb.config.epochs, logger=wandb_logger, num_sanity_val_steps=0, gpus=1 if torch.cuda.is_available() else 0)
+        trainer = pl.Trainer(max_epochs=wandb.config.epochs, logger=wandb_logger, num_sanity_val_steps=0)#, gpus=1 if torch.cuda.is_available() else 0)
         trainer.fit(model_combined,data_module)
 
         # # Get the current timestamp and format it
