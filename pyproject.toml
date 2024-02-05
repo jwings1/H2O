@@ -11,7 +11,7 @@ authors = [
 ]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=A New Appr"
+requires-python = ">=3.6"
 dynamic = ["dependencies", "optional-dependencies"]
 
 [tool.setuptools]
@@ -25,3 +25,4 @@ dev = {file = ['requirements_dev.txt']}
 
 [tool.ruff]
 line-length = 120
+select = ["I"]

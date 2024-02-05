@@ -54,14 +54,14 @@ learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-
 #     [8192, 8192, 8192, 8192, 8192, 4096, 4096, 4096, 2048, 2048, 2048, 1024, 1024, 1024, 512, 512, 512, 256, 128, 64],
 # ]
 
-#learning_rate_range = [5e-1]
-#learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
+# learning_rate_range = [5e-1]
+# learning_rate_range = [1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2]
 batch_size_range = [16]
 dropout_rate_range = [0.1]
 layer_sizes_range = [
     # [128, 128, 64, 64, 32],
     [256, 256, 128, 128, 64],
-    #[512, 512, 256, 256, 128],
+    # [512, 512, 256, 256, 128],
     # [1024, 1024, 512, 512, 256],
     # [256, 256, 256, 128, 64, 32],
     # [512, 512, 512, 256, 128, 64],
@@ -81,8 +81,7 @@ for lr, bs, dr, layers in itertools.product(
     # Initialize the input to 24 joints
     INITIAL_OBJ_PRED = torch.rand((BATCH_SIZE, 24))
 
-
-    #trainer = Trainer(log_every_n_steps=BATCH_SIZE)  # Log every n steps
+    # trainer = Trainer(log_every_n_steps=BATCH_SIZE)  # Log every n steps
 
     # Initialize wandb with hyperparameters
     wandb.init(
@@ -102,10 +101,8 @@ for lr, bs, dr, layers in itertools.product(
         with open(filepath, "rb") as f:
             return pickle.load(f)
 
-    def load_config(camera_id, base_path, Date='Date07'):
-        config_path = os.path.join(
-            base_path, "calibs", Date, "config", str(camera_id), "config.json"
-        )
+    def load_config(camera_id, base_path, Date="Date07"):
+        config_path = os.path.join(base_path, "calibs", Date, "config", str(camera_id), "config.json")
         with open(config_path, "r") as f:
             return json.load(f)
 
@@ -113,39 +110,39 @@ for lr, bs, dr, layers in itertools.product(
         with open(path, "r") as file:
             split_dict = json.load(file)
         return split_dict
-    
+
     def linear_interpolate(value1, value2, i):
-        return value1 + (i/3) * (value2 - value1)
-    
+        return value1 + (i / 3) * (value2 - value1)
+
     def slerp(p0, p1, t):
         # Convert axis-angle to quaternion
         q0 = spt.Rotation.from_rotvec(p0).as_quat()
         q1 = spt.Rotation.from_rotvec(p1).as_quat()
-        
+
         # Normalize quaternions
         q0 = q0 / np.linalg.norm(q0)
         q1 = q1 / np.linalg.norm(q1)
-        
+
         # SLERP
         cosine = np.dot(q0, q1)
-        
+
         # Ensure the shortest path is taken
         if cosine < 0.0:
             q1 = -q1
             cosine = -cosine
-            
+
         # If q0 and q1 are very close, use linear interpolation as an approximation
         if abs(cosine) >= 1.0 - 1e-10:
             return p0 + t * (p1 - p0)
 
         omega = np.arccos(cosine)
         so = np.sin(omega)
-        res_quat = (np.sin((1.0-t)*omega) / so) * q0 + (np.sin(t*omega)/so) * q1
-        
+        res_quat = (np.sin((1.0 - t) * omega) / so) * q0 + (np.sin(t * omega) / so) * q1
+
         # Convert quaternion back to axis-angle
         res_rotvec = spt.Rotation.from_quat(res_quat).as_rotvec()
         return res_rotvec
-  
+
     def slerp_rotations(p0, p1, t):
         num_joints = len(p0) // 3
         interpolated_rotations = np.empty_like(p0)
@@ -153,10 +150,10 @@ for lr, bs, dr, layers in itertools.product(
         for i in range(num_joints):
             start_idx = i * 3
             end_idx = (i + 1) * 3
-            
+
             joint_rot0 = p0[start_idx:end_idx]
             joint_rot1 = p1[start_idx:end_idx]
-            
+
             interpolated_rot = slerp(joint_rot0, joint_rot1, t)
             interpolated_rotations[start_idx:end_idx] = interpolated_rot
 
@@ -165,9 +162,9 @@ for lr, bs, dr, layers in itertools.product(
     def interpolate_frames(all_data_frames):
         interpolated_frames = []
 
-        for idx in range(len(all_data_frames)-1):
+        for idx in range(len(all_data_frames) - 1):
             frame1 = all_data_frames[idx]
-            frame2 = all_data_frames[idx+1]
+            frame2 = all_data_frames[idx + 1]
 
             # Original frame
             interpolated_frames.append(frame1)
@@ -177,12 +174,12 @@ for lr, bs, dr, layers in itertools.product(
             for i in range(1, 3):
                 interpolated_frame = frame1.copy()
                 t = i / 3.0  # Assuming you want to interpolate at 1/3 and 2/3 positions between frame1 and frame2
-                interpolated_frame['pose'] = slerp_rotations(frame1['pose'], frame2['pose'], t)
-                interpolated_frame['trans'] = linear_interpolate(frame1['trans'], frame2['trans'], t)
-                interpolated_frame['obj_pose'] = slerp_rotations(frame1['obj_pose'], frame2['obj_pose'], t)
-                interpolated_frame['obj_trans'] = linear_interpolate(frame1['obj_trans'], frame2['obj_trans'], t)
-                
-                interpolated_frames.append(interpolated_frame)            
+                interpolated_frame["pose"] = slerp_rotations(frame1["pose"], frame2["pose"], t)
+                interpolated_frame["trans"] = linear_interpolate(frame1["trans"], frame2["trans"], t)
+                interpolated_frame["obj_pose"] = slerp_rotations(frame1["obj_pose"], frame2["obj_pose"], t)
+                interpolated_frame["obj_trans"] = linear_interpolate(frame1["obj_trans"], frame2["obj_trans"], t)
+
+                interpolated_frames.append(interpolated_frame)
 
         # Adding the last original frame
         interpolated_frames.append(all_data_frames[-1])
@@ -192,16 +189,18 @@ for lr, bs, dr, layers in itertools.product(
     def transform_smpl_to_camera_frame(pose, trans, camera1_params, cam_params):
         # Convert axis-angle representation to rotation matrix
         R_w = Rotation.from_rotvec(pose[:3]).as_matrix()
-        
+
         # Build transformation matrix of mesh in world coordinates
         T_mesh = np.eye(4)
         T_mesh[:3, :3] = R_w
         T_mesh[:3, 3] = trans
-        
+
         # Extract rotation and translation of camera from world coordinates
-        R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
-        t_w_c = np.array(cam_params['translation']).reshape(3,)
-        
+        R_w_c = np.array(cam_params["rotation"]).reshape(3, 3)
+        t_w_c = np.array(cam_params["translation"]).reshape(
+            3,
+        )
+
         # Build transformation matrix of camera in world coordinates
         T_cam = np.eye(4)
         T_cam[:3, :3] = R_w_c
@@ -210,7 +209,7 @@ for lr, bs, dr, layers in itertools.product(
         T_cam = T_cam.astype(np.float64)
         T_mesh = T_mesh.astype(np.float64)
         T_mesh_in_cam = np.linalg.inv(T_cam) @ T_mesh
-        
+
         # Extract transformed pose and translation of mesh in camera coordinate frame
         transformed_pose = Rotation.from_matrix(T_mesh_in_cam[:3, :3]).as_rotvec().flatten()
         transformed_pose = np.concatenate([transformed_pose, pose[3:]]).flatten()
@@ -227,11 +226,13 @@ for lr, bs, dr, layers in itertools.product(
         T_mesh = np.eye(4)
         T_mesh[:3, :3] = R_w
         T_mesh[:3, 3] = data["trans"]
-        
+
         # Extract rotation and translation of camera from world coordinates
-        R_w_c = np.array(cam_params['rotation']).reshape(3, 3)
-        t_w_c = np.array(cam_params['translation']).reshape(3,)
-        
+        R_w_c = np.array(cam_params["rotation"]).reshape(3, 3)
+        t_w_c = np.array(cam_params["translation"]).reshape(
+            3,
+        )
+
         # Build transformation matrix of camera in world coordinates
         T_cam = np.eye(4)
         T_cam[:3, :3] = R_w_c
@@ -243,19 +244,19 @@ for lr, bs, dr, layers in itertools.product(
         transformed_trans = T_mesh_in_cam[:3, 3].flatten()
 
         return transformed_trans
-    
+
     def render_smpl(transformed_pose, transformed_trans, betas):
-    
         print("Start of render_smpl function.")
-        
+
         batch_size = 1
         print(f"batch_size: {batch_size}")
 
         # Create the SMPL layer
         smpl_layer = SMPL_Layer(
             center_idx=0,
-            gender='male',
-            model_root='/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/')
+            gender="male",
+            model_root="/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch/native/models/",
+        )
         print("SMPL_Layer created.")
 
         # Process pose parameters
@@ -276,7 +277,7 @@ for lr, bs, dr, layers in itertools.product(
         print(f"CUDA available: {cuda}")
         device = torch.device("cuda:0" if cuda else "cpu")
         print(f"Device: {device}")
-        
+
         pose_params = pose_params.to(device)
         shape_params = shape_params.to(device)
         obj_trans = obj_trans.to(device)
@@ -314,62 +315,88 @@ for lr, bs, dr, layers in itertools.product(
         right_hand = J[23]
 
         # Creating a list with all joints
-        selected_joints = [pelvis, left_hip, right_hip, spine1, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
-                        left_foot, right_foot, neck, left_collar, right_collar, head, left_shoulder, right_shoulder, 
-                        left_elbow, right_elbow, left_wrist, right_wrist, left_hand, right_hand]
-        
-        # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3, 
-        #                 left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]      
+        selected_joints = [
+            pelvis,
+            left_hip,
+            right_hip,
+            spine1,
+            left_knee,
+            right_knee,
+            spine2,
+            left_ankle,
+            right_ankle,
+            spine3,
+            left_foot,
+            right_foot,
+            neck,
+            left_collar,
+            right_collar,
+            head,
+            left_shoulder,
+            right_shoulder,
+            left_elbow,
+            right_elbow,
+            left_wrist,
+            right_wrist,
+            left_hand,
+            right_hand,
+        ]
+
+        # selected_joints = [pelvis, left_knee, right_knee, spine2, left_ankle, right_ankle, spine3,
+        #                 left_foot, right_foot, head, left_shoulder, right_shoulder, left_hand, right_hand]
         return selected_joints
 
     def project_frames(interpolated_data_frames):
-        
         reprojected_cam1_list = []
         reprojected_cam0_list = []
         reprojected_cam2_list = []
         reprojected_cam3_list = []
-        
+
         identifiers = []
 
         base_path = "/scratch_net/biwidl307_second/lgermano/behave"
 
         # Process interpolated frames
         for idx, frame_data in enumerate(interpolated_data_frames):
-
             projected_frame = frame_data.copy()
-                            
+
             for cam_id in [1, 0, 2, 3]:
                 print(f"\nProcessing for camera {cam_id}...")
-                
-                camera1_params = load_config(1, base_path, frame_data['date'])
-                cam_params = load_config(cam_id, base_path, frame_data['date'])
-                projected_frame['pose'],projected_frame['trans'] = transform_smpl_to_camera_frame(frame_data['pose'], frame_data['trans'], camera1_params, cam_params)
-                        
+
+                camera1_params = load_config(1, base_path, frame_data["date"])
+                cam_params = load_config(cam_id, base_path, frame_data["date"])
+                projected_frame["pose"], projected_frame["trans"] = transform_smpl_to_camera_frame(
+                    frame_data["pose"], frame_data["trans"], camera1_params, cam_params
+                )
+
                 if cam_id == 1:
-                                        
-                    projected_frame['img'] = frame_data['img'][cam_id]
+                    projected_frame["img"] = frame_data["img"][cam_id]
 
                     # Produce labels: distance joint-obj_trans
-                    selected_joints = render_smpl(projected_frame['pose'],projected_frame['trans'],projected_frame['betas'])
+                    selected_joints = render_smpl(
+                        projected_frame["pose"], projected_frame["trans"], projected_frame["betas"]
+                    )
                     selected_joints = [joint.cpu().numpy() for joint in selected_joints]
-                    distances = np.asarray([np.linalg.norm(projected_frame['obj_trans'] - joint) for joint in selected_joints])
-                    projected_frame['distances'] = distances
+                    distances = np.asarray(
+                        [np.linalg.norm(projected_frame["obj_trans"] - joint) for joint in selected_joints]
+                    )
+                    projected_frame["distances"] = distances
                     reprojected_cam1_list.append(projected_frame)
                 else:
                     if cam_id == 0:
-                        projected_frame['img'] = frame_data['img'][cam_id]
-                        projected_frame['distances'] = distances
+                        projected_frame["img"] = frame_data["img"][cam_id]
+                        projected_frame["distances"] = distances
                         reprojected_cam0_list.append(projected_frame)
                     if cam_id == 2:
-                        projected_frame['img'] = frame_data['img'][cam_id]
-                        projected_frame['distances'] = distances
+                        projected_frame["img"] = frame_data["img"][cam_id]
+                        projected_frame["distances"] = distances
                         reprojected_cam2_list.append(projected_frame)
                     else:
-                        projected_frame['img'] = frame_data['img'][cam_id]
-                        projected_frame['distances'] = distances
+                        projected_frame["img"] = frame_data["img"][cam_id]
+                        projected_frame["distances"] = distances
                         reprojected_cam3_list.append(projected_frame)
 
-                identifiers.append(projected_frame['scene'])
+                identifiers.append(projected_frame["scene"])
 
         return reprojected_cam1_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers
 
@@ -387,14 +414,13 @@ for lr, bs, dr, layers in itertools.product(
             self.reprojected_smpl_cam1 = reprojected_cam1_tensors[0]
             self.reprojected_smpl_cam2 = reprojected_cam2_tensors[0]
             self.reprojected_smpl_cam3 = reprojected_cam3_tensors[0]
-            
+
             self.reprojected_obj_cam0 = reprojected_cam0_tensors[1]
             self.reprojected_obj_cam1 = reprojected_cam0_tensors[1]
             self.reprojected_obj_cam2 = reprojected_cam0_tensors[1]
             self.reprojected_obj_cam3 = reprojected_cam0_tensors[1]
 
-
-            self.identifiers = identifiers[:len(self.reprojected_smpl_cam0)]
+            self.identifiers = identifiers[: len(self.reprojected_smpl_cam0)]
             self.num_mlps = num_mlps
 
         def __len__(self):
@@ -410,9 +436,9 @@ for lr, bs, dr, layers in itertools.product(
                 "obj_cam1": self.reprojected_obj_cam1[idx],
                 "obj_cam2": self.reprojected_obj_cam2[idx],
                 "obj_cam3": self.reprojected_obj_cam3[idx],
-                "identifier": self.identifiers[idx]
+                "identifier": self.identifiers[idx],
             }
-        
+
     class BehaveDataModule(pl.LightningDataModule):
         def __init__(self, dataset, split, batch_size=wandb.config.batch_size):
             super(BehaveDataModule, self).__init__()
@@ -431,9 +457,7 @@ for lr, bs, dr, layers in itertools.product(
 
         def train_dataloader(self):
             train_dataset = Subset(self.dataset, self.train_indices)
-            return DataLoader(
-                train_dataset, batch_size=self.batch_size, shuffle=False
-            )  # , num_workers=16)
+            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)  # , num_workers=16)
 
         def val_dataloader(self):
             # Assuming validation set is not provided, so using test set as validation
@@ -457,16 +481,11 @@ for lr, bs, dr, layers in itertools.product(
             # Use layer_sizes from wandb.config to create the architecture
             layer_sizes = [input_dim] + wandb.config.layer_sizes + [output_dim]
             self.linears = torch.nn.ModuleList(
-                [
-                    torch.nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-                    for i in range(len(layer_sizes) - 1)
-                ]
+                [torch.nn.Linear(layer_sizes[i], layer_sizes[i + 1]) for i in range(len(layer_sizes) - 1)]
             )
 
             # Batch normalization layers based on the layer sizes
-            self.bns = torch.nn.ModuleList(
-                [torch.nn.BatchNorm1d(size) for size in wandb.config.layer_sizes]
-            )
+            self.bns = torch.nn.ModuleList([torch.nn.BatchNorm1d(size) for size in wandb.config.layer_sizes])
 
             # Dropout layer
             self.dropout = torch.nn.Dropout(wandb.config.dropout_rate)
@@ -478,9 +497,7 @@ for lr, bs, dr, layers in itertools.product(
                     torch.nn.init.zeros_(m.bias)
 
         def forward(self, x):
-            for i, linear in enumerate(
-                self.linears[:-1]
-            ):  # Exclude the last linear layer
+            for i, linear in enumerate(self.linears[:-1]):  # Exclude the last linear layer
                 x = linear(x)
                 if i < len(self.bns):  # Apply batch normalization only if available
                     x = self.bns[i](x)
@@ -491,9 +508,7 @@ for lr, bs, dr, layers in itertools.product(
             return x
 
     class RecursiveMLP(pl.LightningModule):
-        def __init__(
-            self, input_dim_smpl, input_dim_obj, output_dim, num_mlps, initial_obj_pred
-        ):
+        def __init__(self, input_dim_smpl, input_dim_obj, output_dim, num_mlps, initial_obj_pred):
             super(RecursiveMLP, self).__init__()
 
             self.automatic_optimization = False
@@ -533,29 +548,23 @@ for lr, bs, dr, layers in itertools.product(
         def validation_step(self, batch, batch_idx):
             combined_loss = self._compute_loss(batch)
             wandb.log({"loss_val": combined_loss})  # Logging loss_val for the scheduler
-            
+
             self.validation_losses.append(combined_loss)
             return {"val_loss": combined_loss}
 
         def on_validation_epoch_end(self):
-            avg_loss =  torch.mean(torch.tensor(self.validation_losses))
-            self.log('avg_loss', avg_loss)
+            avg_loss = torch.mean(torch.tensor(self.validation_losses))
+            self.log("avg_loss", avg_loss)
             wandb.log({"avg_loss": avg_loss})
             self.validation_losses = []  # reset for the next epoch
-
 
         def test_step(self, batch, batch_idx):
             # The structure is the same as the validation step
             outputs = self.validation_step(batch, batch_idx)
             return {"test_loss": outputs["val_loss"]}
 
-
         def _compute_loss(self, batch):
-
-
-
             print(batch["smpl_cam0"].shape)
-
 
             # Extract the first element for each camera view
             smpl_original_first = batch["smpl_cam0"][:, 0, :]
@@ -567,7 +576,7 @@ for lr, bs, dr, layers in itertools.product(
             obj_cam0_first = batch["obj_cam1"][:, 0, :]
             obj_cam2_first = batch["obj_cam2"][:, 0, :]
             obj_cam3_first = batch["obj_cam3"][:, 0, :]
-            
+
             obj_original_last = batch["obj_cam0"][:, -1, :]
             obj_cam0_last = batch["obj_cam1"][:, -1, :]
             obj_cam2_last = batch["obj_cam2"][:, -1, :]
@@ -606,7 +615,6 @@ for lr, bs, dr, layers in itertools.product(
 
             scheduler.step(val_loss)
 
-
         def configure_optimizers(self):
             optimizer = torch.optim.Adam(
                 self.parameters(),
@@ -615,18 +623,13 @@ for lr, bs, dr, layers in itertools.product(
                 weight_decay=1e-4,
             )
             scheduler = {
-                "scheduler": ReduceLROnPlateau(
-                    optimizer, "min", patience=5, verbose=True, factor=0.5
-                ),
+                "scheduler": ReduceLROnPlateau(optimizer, "min", patience=5, verbose=True, factor=0.5),
                 "monitor": "avg_val_loss",  # Changed to avg_val_loss
-                "interval": "step", #"epoch",
+                "interval": "step",  # "epoch",
                 "frequency": 1,
             }
             return [optimizer], [scheduler]
 
-    
-    
-    
     # 4. Training using PyTorch Lightnings
     # Integrating the loading and dataset creation
     behave_seq = "/scratch_net/biwidl307_second/lgermano/behave/sequences"
@@ -635,7 +638,7 @@ for lr, bs, dr, layers in itertools.product(
 
     # ############## POSSIBLY USING A SUBSET ######################
     # selected_files = all_files
-   
+
     # print(f"Detected {len(selected_files)} frames.")
 
     # all_data_frames = []
@@ -648,51 +651,49 @@ for lr, bs, dr, layers in itertools.product(
     #         # For object path
     #         obj_pattern = os.path.join(frame_folder, "*", "fit01", "*_fit.pkl")
     #         obj_matches = glob.glob(obj_pattern)
-            
+
     #         if obj_matches:
     #             frame_data['obj_path']= obj_matches[0]
     #             #print(frame_data['obj_path'])
     #         else:
     #             obj_path = None
-            
+
     #         # For SMPL path
     #         smpl_path = os.path.join(frame_folder, "person", "fit02", "person_fit.pkl")
     #         frame_data['smpl_path'] = smpl_path
-            
-            
+
     #         frame_data['scene'] = frame_folder.split('/')[-2]
     #         frame_data['date'] = frame_folder.split('/')[-2].split('_')[0]
     #         print(frame_data['scene'])
     #         print(frame_data['date'])
-            
+
     #         return None
 
     #     get_frame_data(frame_folder)
-        
+
     #     smpl_data = load_pickle(frame_data['smpl_path'])
     #     frame_data['pose'] = smpl_data['pose'][:72]
     #     frame_data['trans'] = smpl_data['trans']
     #     frame_data['betas'] = smpl_data['betas']
 
-
     #     obj_data = load_pickle(frame_data['obj_path'])
     #     frame_data['obj_pose'] = obj_data['angle']
     #     frame_data['obj_trans'] = obj_data['trans']
-        
+
     #     image_paths = {
     #         1: os.path.join(frame_folder, "k1.color.jpg"),
     #         2: os.path.join(frame_folder, "k2.color.jpg"),
     #         0: os.path.join(frame_folder, "k0.color.jpg"),
     #         3: os.path.join(frame_folder, "k3.color.jpg")
     #     }
-                    
+
     #     frame_data['img'] = image_paths
-            
+
     #     all_data_frames.append(frame_data)
 
     # # Interpolate between frames
     # interpolated_data_frames = interpolate_frames(all_data_frames)
-    
+
     # reprojected_cam1_list, reprojected_cam0_list, reprojected_cam2_list, reprojected_cam3_list, identifiers = project_frames(interpolated_data_frames)
 
     # data_to_store = {
@@ -706,8 +707,9 @@ for lr, bs, dr, layers in itertools.product(
     # # # with open('/scratch_net/biwidl307/lgermano/H2O/datasets/BEHAVE_train_test_int30fps_4cam/dataset_processed.pkl', 'wb') as f:
     # # #     pickle.dump(data_to_store, f)
 
-
-    with open('/scratch_net/biwidl307/lgermano/H2O/datasets/BEHAVE_train_test_int30fps_4cam/dataset_processed.pkl', 'rb') as f:
+    with open(
+        "/scratch_net/biwidl307/lgermano/H2O/datasets/BEHAVE_train_test_int30fps_4cam/dataset_processed.pkl", "rb"
+    ) as f:
         data_retrieved = pickle.load(f)
 
     # Tranform whole measurement in offsets
@@ -715,15 +717,15 @@ for lr, bs, dr, layers in itertools.product(
     # print(len(data_retrieved['reprojected_cam1']))
     # print(len(data_retrieved['identifiers']))
     # assert len(data_retrieved['reprojected_cam1']) == len(data_retrieved['identifiers'])
-    
+
     def offset_transform(input_list, identifiers):
         offsetted_list = []
 
         for idx, data_frame in enumerate(input_list[:-1]):
-            if identifiers[idx] == identifiers[idx + 1] and idx >=1:
+            if identifiers[idx] == identifiers[idx + 1] and idx >= 1:
                 data_frame_offsetted = data_frame.copy()
-                data_frame_offsetted['trans'] -= input_list[idx-1]['trans']
-                data_frame_offsetted['obj_trans'] -= input_list[idx-1]['obj_trans']
+                data_frame_offsetted["trans"] -= input_list[idx - 1]["trans"]
+                data_frame_offsetted["obj_trans"] -= input_list[idx - 1]["obj_trans"]
                 offsetted_list.append(data_frame_offsetted)
             else:
                 offsetted_list.append(data_frame)
@@ -731,21 +733,21 @@ for lr, bs, dr, layers in itertools.product(
         offsetted_list.append(input_list[-1])
         return offsetted_list
 
-    reprojected_cam1_offsetted = offset_transform(data_retrieved['reprojected_cam1'], data_retrieved['identifiers'])
-    reprojected_cam0_offsetted = offset_transform(data_retrieved['reprojected_cam0'], data_retrieved['identifiers'])
-    reprojected_cam2_offsetted = offset_transform(data_retrieved['reprojected_cam2'], data_retrieved['identifiers'])
-    reprojected_cam3_offsetted = offset_transform(data_retrieved['reprojected_cam3'], data_retrieved['identifiers'])
-    
-    assert len(data_retrieved['identifiers']) == len(reprojected_cam0_offsetted) * 4
+    reprojected_cam1_offsetted = offset_transform(data_retrieved["reprojected_cam1"], data_retrieved["identifiers"])
+    reprojected_cam0_offsetted = offset_transform(data_retrieved["reprojected_cam0"], data_retrieved["identifiers"])
+    reprojected_cam2_offsetted = offset_transform(data_retrieved["reprojected_cam2"], data_retrieved["identifiers"])
+    reprojected_cam3_offsetted = offset_transform(data_retrieved["reprojected_cam3"], data_retrieved["identifiers"])
+
+    assert len(data_retrieved["identifiers"]) == len(reprojected_cam0_offsetted) * 4
 
     def sliding_window_grouping(input_list, N_MLP, identifiers, group_identifiers):
         """
         Group the input list using overlapping sliding windows with offset 1 and amplitude N_MLP.
-        
+
         Args:
         - input_list (list): The input list of data.
         - N_MLP (int): The amplitude of the sliding window.
-        
+
         Returns:
         - list of torch tensors: List containing grouped windows converted to torch tensors.
         """
@@ -755,36 +757,44 @@ for lr, bs, dr, layers in itertools.product(
         obj_list = []
 
         for frame in input_list:
-            smpl_list.append(frame['trans'])
-            obj_list.append(frame['obj_trans'])
+            smpl_list.append(frame["trans"])
+            obj_list.append(frame["obj_trans"])
 
         for i in range(len(input_list) - N_MLP + 1):
             if identifiers[i] == identifiers[i + N_MLP]:
-                window_smpl = smpl_list[i:i + N_MLP]
+                window_smpl = smpl_list[i : i + N_MLP]
                 tensor_smpl = torch.tensor(window_smpl, dtype=torch.float32)
                 tensor_smpl_list.append(tensor_smpl)
-                            
-                window_obj = obj_list[i:i + N_MLP]
+
+                window_obj = obj_list[i : i + N_MLP]
                 tensor_obj = torch.tensor(window_obj, dtype=torch.float32)
-                tensor_obj_list.append(tensor_obj)                                            
-                
+                tensor_obj_list.append(tensor_obj)
+
                 group_identifiers.append(identifiers[i])
         return [tensor_smpl_list, tensor_obj_list, group_identifiers]
-    
+
     group_identifiers = []
-    #print(identifiers)
+    # print(identifiers)
 
-    reprojected_cam1_tensors = sliding_window_grouping(reprojected_cam1_offsetted, N_MLPS, data_retrieved['identifiers'], group_identifiers)
-    reprojected_cam0_tensors = sliding_window_grouping(reprojected_cam0_offsetted, N_MLPS, data_retrieved['identifiers'], group_identifiers)
-    reprojected_cam2_tensors = sliding_window_grouping(reprojected_cam2_offsetted, N_MLPS, data_retrieved['identifiers'], group_identifiers)
-    reprojected_cam3_tensors = sliding_window_grouping(reprojected_cam3_offsetted, N_MLPS, data_retrieved['identifiers'], group_identifiers)
+    reprojected_cam1_tensors = sliding_window_grouping(
+        reprojected_cam1_offsetted, N_MLPS, data_retrieved["identifiers"], group_identifiers
+    )
+    reprojected_cam0_tensors = sliding_window_grouping(
+        reprojected_cam0_offsetted, N_MLPS, data_retrieved["identifiers"], group_identifiers
+    )
+    reprojected_cam2_tensors = sliding_window_grouping(
+        reprojected_cam2_offsetted, N_MLPS, data_retrieved["identifiers"], group_identifiers
+    )
+    reprojected_cam3_tensors = sliding_window_grouping(
+        reprojected_cam3_offsetted, N_MLPS, data_retrieved["identifiers"], group_identifiers
+    )
 
-    group_identifiers = group_identifiers[:len(reprojected_cam1_tensors)-N_MLPS+1]
-    
-    input_dim = 6 #reprojected_smpl_cam0_list[0].shape[0]
-    output_dim = 3 #reprojected_obj_cam0_list[0].shape[0]
+    group_identifiers = group_identifiers[: len(reprojected_cam1_tensors) - N_MLPS + 1]
 
-    #lists of tensored inputs
+    input_dim = 6  # reprojected_smpl_cam0_list[0].shape[0]
+    output_dim = 3  # reprojected_obj_cam0_list[0].shape[0]
+
+    # lists of tensored inputs
     dataset = BehaveDataset(
         reprojected_cam0_tensors,
         reprojected_cam1_tensors,
@@ -820,15 +830,15 @@ for lr, bs, dr, layers in itertools.product(
     model = model.float()
 
     checkpoint_callback = ModelCheckpoint(
-    dirpath='/scratch_net/biwidl307/lgermano/H2O/checkpoints',  # directory where the checkpoints will be saved
-    filename='{epoch:02d}-{val_loss:.2f}',  # checkpoint file name pattern
-    save_top_k=1,  # save only the best checkpoint based on the validation loss
-    verbose=True,  # log information
-    monitor='avg_loss',  # what metric to monitor (should be in returned log dict from validation_step)
-    mode='min',  # 'min' means the checkpoint will be updated when val_loss decreases
-    save_last=True  # always save the last model
+        dirpath="/scratch_net/biwidl307/lgermano/H2O/checkpoints",  # directory where the checkpoints will be saved
+        filename="{epoch:02d}-{val_loss:.2f}",  # checkpoint file name pattern
+        save_top_k=1,  # save only the best checkpoint based on the validation loss
+        verbose=True,  # log information
+        monitor="avg_loss",  # what metric to monitor (should be in returned log dict from validation_step)
+        mode="min",  # 'min' means the checkpoint will be updated when val_loss decreases
+        save_last=True,  # always save the last model
     )
-  
+
     trainer = pl.Trainer(max_epochs=wandb.config.epochs, callbacks=[checkpoint_callback])
     trainer.fit(model, datamodule=data_module)
 
@@ -857,7 +867,7 @@ for lr, bs, dr, layers in itertools.product(
 
     # Save the model
     torch.save(model, filename)
-    
+
     # Finish the current W&B run
     wandb.finish()
 

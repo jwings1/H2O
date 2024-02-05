@@ -73,8 +73,7 @@ for lr, bs, dr, layers in itertools.product(
     LAYER_SIZES = layers
     INITIAL_OBJ_PRED = torch.rand((BATCH_SIZE, 3))
 
-
-    #trainer = Trainer(log_every_n_steps=BATCH_SIZE)  # Log every n steps
+    # trainer = Trainer(log_every_n_steps=BATCH_SIZE)  # Log every n steps
 
     # Initialize wandb with hyperparameters
     wandb.init(
@@ -95,9 +94,7 @@ for lr, bs, dr, layers in itertools.product(
             return pickle.load(f)
 
     def load_config(camera_id, base_path, Date):
-        config_path = os.path.join(
-            base_path, "calibs", Date, "config", str(camera_id), "config.json"
-        )
+        config_path = os.path.join(base_path, "calibs", Date, "config", str(camera_id), "config.json")
         with open(config_path, "r") as f:
             return json.load(f)
 
@@ -122,22 +119,16 @@ for lr, bs, dr, layers in itertools.product(
         rot_matrix_transformed = rotation1_inv @ rot_matrix_global
 
         # Convert back to rotation vector
-        transformed_global_orientation = Rotation.from_matrix(
-            rot_matrix_transformed
-        ).as_rotvec()
+        transformed_global_orientation = Rotation.from_matrix(rot_matrix_transformed).as_rotvec()
 
         # Get the rotation and translation for the target camera (cam_params)
         rotation_cam = np.array(cam_params["rotation"]).reshape(3, 3)
         translation_cam = np.array(cam_params["translation"]).reshape(3, 1)
 
         # Transform the trans to the target camera's frame
-        transformed_trans = (
-            rotation_cam @ (rotation1_inv @ trans.reshape(3, 1) + translation_cam)
-        ).flatten()
+        transformed_trans = (rotation_cam @ (rotation1_inv @ trans.reshape(3, 1) + translation_cam)).flatten()
         # Only the first three parameters of the pose are reprojected, the rest are left as they are
-        transformed_pose = (
-            np.concatenate([transformed_global_orientation, pose[3:]])
-        ).flatten()
+        transformed_pose = (np.concatenate([transformed_global_orientation, pose[3:]])).flatten()
 
         return np.concatenate([transformed_pose, transformed_trans])
 
@@ -188,23 +179,17 @@ for lr, bs, dr, layers in itertools.product(
 
             # For Camera 0
             cam0_params = camera1_params
-            reprojected_cam0 = transform_smpl_to_camera_frame(
-                pose, trans, camera1_params, cam0_params
-            )
+            reprojected_cam0 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam0_params)
             reprojected_cam0_list.append(reprojected_cam0.flatten())
 
             # For Camera 2
             cam2_params = camera1_params
-            reprojected_cam2 = transform_smpl_to_camera_frame(
-                pose, trans, camera1_params, cam2_params
-            )
+            reprojected_cam2 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam2_params)
             reprojected_cam2_list.append(reprojected_cam2.flatten())
 
             # For Camera 3
             cam3_params = camera1_params
-            reprojected_cam3 = transform_smpl_to_camera_frame(
-                pose, trans, camera1_params, cam3_params
-            )
+            reprojected_cam3 = transform_smpl_to_camera_frame(pose, trans, camera1_params, cam3_params)
             reprojected_cam3_list.append(reprojected_cam3.flatten())
 
             identifier = filename.split("/")[6]
@@ -226,9 +211,7 @@ for lr, bs, dr, layers in itertools.product(
         paths = []
         identifiers = []
 
-        for filename in glob.iglob(
-            os.path.join(object_path, "**", "*", "fit01", "*_fit.pkl"), recursive=True
-        ):
+        for filename in glob.iglob(os.path.join(object_path, "**", "*", "fit01", "*_fit.pkl"), recursive=True):
             paths.append(filename)
 
         paths = sorted(paths)
@@ -248,23 +231,17 @@ for lr, bs, dr, layers in itertools.product(
 
             # For Camera 0
             cam0_params = camera1_params
-            reprojected_cam0 = transform_object_to_camera_frame(
-                data, camera1_params, cam0_params
-            )
+            reprojected_cam0 = transform_object_to_camera_frame(data, camera1_params, cam0_params)
             reprojected_cam0_list.append(reprojected_cam0.flatten())
 
             # For Camera 2
             cam2_params = camera1_params
-            reprojected_cam2 = transform_object_to_camera_frame(
-                data, camera1_params, cam2_params
-            )
+            reprojected_cam2 = transform_object_to_camera_frame(data, camera1_params, cam2_params)
             reprojected_cam2_list.append(reprojected_cam2.flatten())
 
             # For Camera 3
             cam3_params = camera1_params
-            reprojected_cam3 = transform_object_to_camera_frame(
-                data, camera1_params, cam3_params
-            )
+            reprojected_cam3 = transform_object_to_camera_frame(data, camera1_params, cam3_params)
             reprojected_cam3_list.append(reprojected_cam3.flatten())
 
             identifier = filename.split("/")[6]
@@ -319,13 +296,8 @@ for lr, bs, dr, layers in itertools.product(
                 sliced_data = []
                 for i in range(num_items):
                     # Check if within bounds and if the identifier matches
-                    if (
-                        idx + i < len(data)
-                        and self.identifiers[idx] == self.identifiers[idx + i]
-                    ):
-                        sliced_data.append(
-                            torch.tensor(data[idx + i], dtype=torch.float32)
-                        )
+                    if idx + i < len(data) and self.identifiers[idx] == self.identifiers[idx + i]:
+                        sliced_data.append(torch.tensor(data[idx + i], dtype=torch.float32))
                     else:
                         return []  # Return empty list if conditions are not met
                 return sliced_data if len(sliced_data) == num_items else []
@@ -337,25 +309,13 @@ for lr, bs, dr, layers in itertools.product(
             obj_labels = slice_data(self.labels, num_labels)
 
             # Fetching the reprojected parameters and labels for each camera
-            reprojected_cam0_params = slice_data(
-                self.reprojected_cam0_inputs, self.num_mlps
-            )
-            reprojected_cam2_params = slice_data(
-                self.reprojected_cam2_inputs, self.num_mlps
-            )
-            reprojected_cam3_params = slice_data(
-                self.reprojected_cam3_inputs, self.num_mlps
-            )
+            reprojected_cam0_params = slice_data(self.reprojected_cam0_inputs, self.num_mlps)
+            reprojected_cam2_params = slice_data(self.reprojected_cam2_inputs, self.num_mlps)
+            reprojected_cam3_params = slice_data(self.reprojected_cam3_inputs, self.num_mlps)
 
-            reprojected_cam0_labels = slice_data(
-                self.reprojected_cam0_labels, num_labels
-            )
-            reprojected_cam2_labels = slice_data(
-                self.reprojected_cam2_labels, num_labels
-            )
-            reprojected_cam3_labels = slice_data(
-                self.reprojected_cam3_labels, num_labels
-            )
+            reprojected_cam0_labels = slice_data(self.reprojected_cam0_labels, num_labels)
+            reprojected_cam2_labels = slice_data(self.reprojected_cam2_labels, num_labels)
+            reprojected_cam3_labels = slice_data(self.reprojected_cam3_labels, num_labels)
 
             # The identifier for the current idx
             identifier = self.identifiers[idx]
@@ -403,9 +363,7 @@ for lr, bs, dr, layers in itertools.product(
 
         def train_dataloader(self):
             train_dataset = Subset(self.dataset, self.train_indices)
-            return DataLoader(
-                train_dataset, batch_size=self.batch_size, shuffle=False
-            )  # , num_workers=16)
+            return DataLoader(train_dataset, batch_size=self.batch_size, shuffle=False)  # , num_workers=16)
 
         def val_dataloader(self):
             # Assuming validation set is not provided, so using test set as validation
@@ -429,16 +387,11 @@ for lr, bs, dr, layers in itertools.product(
             # Use layer_sizes from wandb.config to create the architecture
             layer_sizes = [input_dim] + wandb.config.layer_sizes + [output_dim]
             self.linears = torch.nn.ModuleList(
-                [
-                    torch.nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-                    for i in range(len(layer_sizes) - 1)
-                ]
+                [torch.nn.Linear(layer_sizes[i], layer_sizes[i + 1]) for i in range(len(layer_sizes) - 1)]
             )
 
             # Batch normalization layers based on the layer sizes
-            self.bns = torch.nn.ModuleList(
-                [torch.nn.BatchNorm1d(size) for size in wandb.config.layer_sizes]
-            )
+            self.bns = torch.nn.ModuleList([torch.nn.BatchNorm1d(size) for size in wandb.config.layer_sizes])
 
             # Dropout layer
             self.dropout = torch.nn.Dropout(wandb.config.dropout_rate)
@@ -450,9 +403,7 @@ for lr, bs, dr, layers in itertools.product(
                     torch.nn.init.zeros_(m.bias)
 
         def forward(self, x):
-            for i, linear in enumerate(
-                self.linears[:-1]
-            ):  # Exclude the last linear layer
+            for i, linear in enumerate(self.linears[:-1]):  # Exclude the last linear layer
                 x = linear(x)
                 if i < len(self.bns):  # Apply batch normalization only if available
                     x = self.bns[i](x)
@@ -463,9 +414,7 @@ for lr, bs, dr, layers in itertools.product(
             return x
 
     class RecursiveMLP(pl.LightningModule):
-        def __init__(
-            self, input_dim_smpl, input_dim_obj, output_dim, num_mlps, initial_obj_pred
-        ):
+        def __init__(self, input_dim_smpl, input_dim_obj, output_dim, num_mlps, initial_obj_pred):
             super(RecursiveMLP, self).__init__()
 
             self.automatic_optimization = False
@@ -485,7 +434,6 @@ for lr, bs, dr, layers in itertools.product(
             )  # Ensure initial_obj_pred is on the same device as smpl_list
 
             for i in range(self.num_mlps):
-
                 concatenated_input = torch.cat([smpl_list[i], current_obj_pred], dim=-1)
                 current_obj_pred = self.mlps[i](concatenated_input)
             return current_obj_pred
@@ -517,8 +465,8 @@ for lr, bs, dr, layers in itertools.product(
 
         def on_validation_epoch_end(self):
             avg_loss = torch.stack(self.val_outputs).mean()
-            #wandb.log({"avg_val_loss": avg_loss})
-            
+            # wandb.log({"avg_val_loss": avg_loss})
+
             # Log learning rate and other scheduler info
             # self.log_scheduler_info(avg_loss)
 
@@ -528,9 +476,7 @@ for lr, bs, dr, layers in itertools.product(
             return {"test_loss": outputs["val_loss"]}
 
         def on_test_epoch_end(self):
-            avg_loss = torch.stack(
-                self.val_outputs
-            ).mean()  # Using the val_outputs attribute for test as well
+            avg_loss = torch.stack(self.val_outputs).mean()  # Using the val_outputs attribute for test as well
             wandb.log({"avg_test_loss": avg_loss})
 
         def _compute_loss(self, batch):
@@ -549,30 +495,22 @@ for lr, bs, dr, layers in itertools.product(
             # Forward pass for the original view
             original_output = self(smpl_params, obj_labels[0])
             # Compute MSE loss for the original view
-            loss_original = self.criterion(
-                original_output, torch.stack(obj_labels[1:], dim=0).mean(dim=0)
-            )
+            loss_original = self.criterion(original_output, torch.stack(obj_labels[1:], dim=0).mean(dim=0))
 
             # Forward pass for the cam0 view
             cam0_output = self(reprojected_cam0_params, reprojected_cam0_labels[0])
             # Compute MSE loss for the cam0 view
-            loss_cam0 = self.criterion(
-                cam0_output, torch.stack(reprojected_cam0_labels[1:], dim=0).mean(dim=0)
-            )
+            loss_cam0 = self.criterion(cam0_output, torch.stack(reprojected_cam0_labels[1:], dim=0).mean(dim=0))
 
             # Forward pass for the cam2 view
             cam2_output = self(reprojected_cam2_params, reprojected_cam2_labels[0])
             # Compute MSE loss for the cam2 view
-            loss_cam2 = self.criterion(
-                cam2_output, torch.stack(reprojected_cam2_labels[1:], dim=0).mean(dim=0)
-            )
+            loss_cam2 = self.criterion(cam2_output, torch.stack(reprojected_cam2_labels[1:], dim=0).mean(dim=0))
 
             # Forward pass for the cam3 view
             cam3_output = self(reprojected_cam3_params, reprojected_cam3_labels[0])
             # Compute MSE loss for the cam3 view
-            loss_cam3 = self.criterion(
-                cam3_output, torch.stack(reprojected_cam3_labels[1:], dim=0).mean(dim=0)
-            )
+            loss_cam3 = self.criterion(cam3_output, torch.stack(reprojected_cam3_labels[1:], dim=0).mean(dim=0))
 
             # Multi-task loss, averaging the losses from all views
             combined_loss = (loss_original + loss_cam0 + loss_cam2 + loss_cam3) / 4.0
@@ -595,7 +533,6 @@ for lr, bs, dr, layers in itertools.product(
 
             scheduler.step(val_loss)
 
-
         def configure_optimizers(self):
             optimizer = torch.optim.Adam(
                 self.parameters(),
@@ -604,11 +541,9 @@ for lr, bs, dr, layers in itertools.product(
                 weight_decay=1e-4,
             )
             scheduler = {
-                "scheduler": ReduceLROnPlateau(
-                    optimizer, "min", patience=5, verbose=True, factor=0.5
-                ),
+                "scheduler": ReduceLROnPlateau(optimizer, "min", patience=5, verbose=True, factor=0.5),
                 "monitor": "avg_val_loss",  # Changed to avg_val_loss
-                "interval": "step", #"epoch",
+                "interval": "step",  # "epoch",
                 "frequency": 1,
             }
             return [optimizer], [scheduler]

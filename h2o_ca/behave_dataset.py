@@ -17,7 +17,8 @@ import itertools
 import datetime
 import torch.nn as nn
 from pytorch_lightning import Trainer
-#from smplpytorch.pytorch.smpl_layer import SMPL_Layer
+
+# from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 import scipy.spatial.transform as spt
 import os
 import pickle
@@ -33,12 +34,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import copy
 import gc  # Garbage collection
-#import open3d as o3d
+
+# import open3d as o3d
 from scipy.spatial import cKDTree
 import math
 import argparse
 from datetime import datetime
-#from memory_profiler import profile
+
+# from memory_profiler import profile
 import pdb
 from pytorch_lightning.loggers import WandbLogger
 
@@ -52,33 +55,32 @@ class BehaveDataset(Dataset):
         self.device = device
         self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-        base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+        base_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
         # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
         print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
         for label in self.labels:
             for cam_id in self.cam_ids:
-                file_path = os.path.join(base_path, label + '.pkl')
+                file_path = os.path.join(base_path, label + ".pkl")
                 print(file_path)
                 if os.path.exists(file_path):
                     print(f"Found file: {file_path}", flush=True)
-                    with open(file_path, 'rb') as f:
-
+                    with open(file_path, "rb") as f:
                         if len(self.labels) == 1:
-
                             self.dataset = pickle.load(f)
-                            for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            for start_idx in range(
+                                0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip
+                            ):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(self.dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
                         else:
-
                             dataset = pickle.load(f)
                             for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                            #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                # for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
@@ -93,17 +95,21 @@ class BehaveDataset(Dataset):
         # Only possible if there is one training label
         if len(self.labels) == 1:
             subclip_data = self.dataset[cam_id][start_idx:end_idx]
-            scene = self.dataset[cam_id][0]['scene']
+            scene = self.dataset[cam_id][0]["scene"]
         else:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 dataset = pickle.load(f)
 
             subclip_data = dataset[cam_id][start_idx:end_idx]
-            scene = dataset[cam_id][0]['scene']
+            scene = dataset[cam_id][0]["scene"]
 
-        items = [torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32) for key in self.selected_keys]
+        items = [
+            torch.tensor(np.vstack([subclip_data[i][key] for i in range(len(subclip_data))]), dtype=torch.float32)
+            for key in self.selected_keys
+        ]
 
         return items, scene
+
 
 class BehaveDatasetOffset(Dataset):
     def __init__(self, labels, cam_ids, frames_subclip, selected_keys, wandb, device):
@@ -114,34 +120,33 @@ class BehaveDatasetOffset(Dataset):
         self.device = device
         self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-        base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+        base_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
         # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
         print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
         for label in self.labels:
             for cam_id in self.cam_ids:
-                file_path = os.path.join(base_path, label + '.pkl')
+                file_path = os.path.join(base_path, label + ".pkl")
                 print(file_path)
                 if os.path.exists(file_path):
                     print(f"Found file: {file_path}", flush=True)
-                    with open(file_path, 'rb') as f:
-
+                    with open(file_path, "rb") as f:
                         if len(self.labels) == 1 and False:
-
                             self.dataset = pickle.load(f)
-                            for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            for start_idx in range(
+                                0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip
+                            ):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(self.dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
                         else:
-
                             dataset = pickle.load(f)
-                            #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            # for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                             for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, 1):
-                            #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                # for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
@@ -156,18 +161,18 @@ class BehaveDatasetOffset(Dataset):
         # Only possible if there is one training label
         if len(self.labels) == 1 and False:
             subclip_data = self.dataset[cam_id][start_idx:end_idx]
-            scene = self.dataset[cam_id][0]['scene']
+            scene = self.dataset[cam_id][0]["scene"]
         else:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 dataset = pickle.load(f)
 
             subclip_data = dataset[cam_id][start_idx:end_idx]
-            scene = dataset[cam_id][0]['scene']
-        
+            scene = dataset[cam_id][0]["scene"]
+
         # Initialize with zeros
 
         # For human and object parameters. The first is zero.
-        
+
         items = []
         for key in self.selected_keys:
             tensors = []
@@ -178,13 +183,16 @@ class BehaveDatasetOffset(Dataset):
                     tensors.append(zeros_tensor)
                 else:
                     # Compute the difference with the previous value
-                    diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(subclip_data[i-1][key], dtype=torch.float32)
+                    diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(
+                        subclip_data[i - 1][key], dtype=torch.float32
+                    )
                     tensors.append(diff)
             # Stack the tensors for each key
             stacked_tensors = torch.stack(tensors)
             items.append(stacked_tensors)
 
         return items, scene
+
 
 class BehaveDatasetOffset2(Dataset):
     def __init__(self, labels, cam_ids, frames_subclip, selected_keys, wandb, device):
@@ -195,33 +203,32 @@ class BehaveDatasetOffset2(Dataset):
         self.device = device
         self.data_info = []  # Store file path, camera id, subclip index range, and window indices
 
-        base_path = '/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy'
+        base_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
         # base_path = '/scratch_net/biwidl307/lgermano/H2O/30fps_int_1frame_numpy'
         print(f"Initializing BehaveDataset with {len(labels)} labels and {len(cam_ids)} camera IDs.")
 
         for label in self.labels:
             for cam_id in self.cam_ids:
-                file_path = os.path.join(base_path, label + '.pkl')
+                file_path = os.path.join(base_path, label + ".pkl")
                 print(file_path)
                 if os.path.exists(file_path):
                     print(f"Found file: {file_path}", flush=True)
-                    with open(file_path, 'rb') as f:
-
+                    with open(file_path, "rb") as f:
                         if len(self.labels) == 1:
-
                             self.dataset = pickle.load(f)
-                            for start_idx in range(0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                            for start_idx in range(
+                                0, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip
+                            ):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(self.dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
 
                         else:
-
                             dataset = pickle.load(f)
                             for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
-                            #for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
-                            #for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
+                                # for start_idx in range(0, len(dataset[cam_id]) - self.frames_subclip):
+                                # for start_idx in range(len(self.dataset[cam_id]) - 2 * self.frames_subclip, len(self.dataset[cam_id]) - self.frames_subclip, self.frames_subclip):
                                 end_idx = start_idx + self.frames_subclip
                                 if end_idx <= len(dataset[cam_id]):
                                     self.data_info.append((file_path, cam_id, start_idx, end_idx))
@@ -236,17 +243,17 @@ class BehaveDatasetOffset2(Dataset):
         # Only possible if there is one training label
         if len(self.labels) == 1:
             subclip_data = self.dataset[cam_id][start_idx:end_idx]
-            scene = self.dataset[cam_id][0]['scene']
+            scene = self.dataset[cam_id][0]["scene"]
         else:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 dataset = pickle.load(f)
 
             subclip_data = dataset[cam_id][start_idx:end_idx]
-            scene = dataset[cam_id][0]['scene']
-        
+            scene = dataset[cam_id][0]["scene"]
+
         # Initialize with zeros
         # For object parameters use delta_object - delta_human. The first is zero.
-        
+
         items = []
         for key in self.selected_keys:
             tensors = []
@@ -257,17 +264,24 @@ class BehaveDatasetOffset2(Dataset):
                     tensors.append(zeros_tensor)
                 else:
                     # Compute the difference with the previous value
-                    diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(subclip_data[i-1][key], dtype=torch.float32)
+                    diff = torch.tensor(subclip_data[i][key], dtype=torch.float32) - torch.tensor(
+                        subclip_data[i - 1][key], dtype=torch.float32
+                    )
                     tensors.append(diff)
             # Stack the tensors for each key
             stacked_tensors = torch.stack(tensors)
             items.append(stacked_tensors)
 
         for i in range(len(subclip_data)):
-            items[2][i] = torch.tensor(items[2][i], dtype=torch.float32) - torch.tensor(items[0][i][:3], dtype=torch.float32)
-            items[3][i] = torch.tensor(items[3][i], dtype=torch.float32) - torch.tensor(items[1][i][0], dtype=torch.float32)                      
+            items[2][i] = torch.tensor(items[2][i], dtype=torch.float32) - torch.tensor(
+                items[0][i][:3], dtype=torch.float32
+            )
+            items[3][i] = torch.tensor(items[3][i], dtype=torch.float32) - torch.tensor(
+                items[1][i][0], dtype=torch.float32
+            )
 
         return items, scene
+
 
 class BehaveDataModule(pl.LightningDataModule):
     def __init__(self, dataset, split, batch_size):
@@ -284,10 +298,10 @@ class BehaveDataModule(pl.LightningDataModule):
 
         for idx, (data, scene_name) in enumerate(self.dataset):
             scene = scene_name  # Assuming the scene name is the second element in the tuple
-            if scene in self.split['train']:
+            if scene in self.split["train"]:
                 self.train_indices.append(idx)
                 train_identifiers.append(scene)
-            elif scene in self.split['test']:
+            elif scene in self.split["test"]:
                 self.test_indices.append(idx)
                 test_identifiers.append(scene)
 
