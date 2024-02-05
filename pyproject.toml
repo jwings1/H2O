@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "h2o_ca"
+version = "0.0.1"
+description = "3D Human-Object Interaction in Video"
+authors = [
+  { name = "Lorenzo Germano", email = "your@email.com" },
+]
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=A New Appr"
+dynamic = ["dependencies", "optional-dependencies"]
+
+[tool.setuptools]
+packages = ["h2o_ca"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.dynamic.optional-dependencies]
+dev = {file = ['requirements_dev.txt']}
+
+[tool.ruff]
+line-length = 120
