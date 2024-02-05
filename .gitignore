@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 docs/site/
 
 # test cache
@@ -178,3 +179,5 @@ cython_debug/
 
 #Dataset
 30fps_int_1frame_numpy/
+=======
+>>>>>>> 33abc92ae086009cd48213b9f6690cd108194637

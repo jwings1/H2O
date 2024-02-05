@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # h2o_ca
 
 3D Human-Object Interaction in Video
@@ -61,3 +62,6 @@ The directory structure of the project looks like this:
 Created using [mlops_template](https://github.com/SkafteNicki/mlops_template),
 a [cookiecutter template](https://github.com/cookiecutter/cookiecutter) for getting
 started with Machine Learning Operations (MLOps).
+=======
+
+>>>>>>> 33abc92ae086009cd48213b9f6690cd108194637
