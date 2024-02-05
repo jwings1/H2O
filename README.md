@@ -70,7 +70,7 @@ This repository contains various files and scripts related to the project. Below
 
 ### model_encoder_only_epoch_4.pt
 - Description: Encoder-only model checkpoint.
-- Latest Commit: [Commit ID](https://github.com/jwings1/H2O/tree/2695d4ea13a20c6a675f5a587ee90bb9cbf5e2f1)
+- [Latest Commit](https://github.com/jwings1/H2O/tree/2695d4ea13a20c6a675f5a587ee90bb9cbf5e2f1)
 - Last Updated: 2 days ago
 
 ### model_radiant-leaf-3120_epoch_119.pt
