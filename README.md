@@ -151,5 +151,34 @@ This repository contains various files and scripts related to the project. Below
 - Latest Commit: [Commit ID](link to commit)
 - Last Updated: 3 months ago
 
-### [Add more scripts and utilities as needed...]
+## Dataset Acquisition and Setup
+
+### 1. Downloading the Dataset
+
+Before using the dataset, you need to download it from the provided source. The dataset is available at [https://virtualhumans.mpi-inf.mpg.de/behave/license.html](https://virtualhumans.mpi-inf.mpg.de/behave/license.html). Please ensure that you have read and agreed to the license terms.
+
+#### Download Links:
+- [Scanned objects](https://virtualhumans.mpi-inf.mpg.de/behave/scanned_objects.zip)
+- [Calibration files](https://virtualhumans.mpi-inf.mpg.de/behave/calibration_files.zip)
+- [Train and test split](https://virtualhumans.mpi-inf.mpg.de/behave/train_test_split.zip)
+- Sequences separated by dates (in total ~140GB):
+  - [Date01 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date01.zip)
+  - [Date02 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date02.zip)
+  - [Date03 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date03.zip)
+  - [Date04 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date04.zip)
+  - [Date05 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date05.zip)
+  - [Date06 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date06.zip)
+  - [Date07 sequences](https://virtualhumans.mpi-inf.mpg.de/behave/Date07.zip)
+
+#### Unzipping Sequence Files
+
+After downloading all the sequences, you can extract them using the following command:
+
+```bash
+unzip "Date*.zip" -d sequences
+```
+
+Store the unzipped in /scratch-second/lgermano/behave/behave-30fps-params-v1
+
+Run make_dataset.py
 
