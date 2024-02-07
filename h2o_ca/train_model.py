@@ -7,12 +7,16 @@ import torch
 import pytorch_lightning as pl
 import wandb
 from pytorch_lightning.loggers import WandbLogger
+from data.labels import labels
+from data.behave_dataset import BehaveDatasetOffset, BehaveDataModule
+from data.utils import *
 
 # Load architecture
-from H2O_train6_cross_offset_progressive import CombinedTrans
+from H2O_CA import CombinedTrans
 
-# Load data
+# Load data 
 from data.make_dataset import data_module
+
 
 # Function to create a timestamp
 def timestamp():
@@ -168,13 +172,20 @@ if __name__ == "__main__":
                 "epochs": EPOCHS,
                 "optimizer": OPTIMIZER,
             },
-            # mode="offline"
+            mode="offline"
         )
 
         # Load the model from a checkpoint if needed
         # checkpoint_path = "your_checkpoint_path.pt"
         # checkpoint = torch.load(checkpoint_path, map_location=device)
         # model_combined.load_state_dict(checkpoint)
+        
+        best_overall_avg_loss_val = float("inf")
+        best_params = None
+        frames_subclip = 12
+        masked_frames = 4
+        #device = torch.device("cuda:0" if cuda else "cpu")
+        device = torch.device("cpu")
 
         # Initialize your model and move it to the appropriate device
         model_combined = CombinedTrans(frames_subclip, masked_frames)
@@ -190,15 +201,14 @@ if __name__ == "__main__":
             max_epochs=wandb.config.epochs,
             logger=wandb_logger,
             num_sanity_val_steps=0,
-            gpus=1 if torch.cuda.is_available() else 0,
         )
-        trainer.fit(model_combined, data_module)
+        #trainer.fit(model_combined, data_module)
 
         # Get the current timestamp and format it
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         # Incorporate the timestamp into the filename
-        filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}_{timestamp}_{label}_{cam_id}.pt"
+        filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}_{timestamp}.pt"
 
         # Save the model
         torch.save(model_combined.state_dict(), filename)

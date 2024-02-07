@@ -1,0 +1,88 @@
+{
+    "os": "Linux-4.19.0-26-amd64-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-02-06T23:54:21.060094",
+    "startedAt": "2024-02-06T23:54:20.957984",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "train_model.py",
+    "codePathLocal": "train_model.py",
+    "codePath": "h2o_ca/train_model.py",
+    "git": {
+        "remote": "https://github.com/jwings1/H2O.git",
+        "commit": "845df2fec55080b8fa370c4961145def1a0c572a"
+    },
+    "email": "lorenzogermano1@outlook.it",
+    "root": "/scratch/lgermano/H2O",
+    "host": "biwidl307",
+    "username": "lgermano",
+    "executable": "/itet-stor/lgermano/net_scratch/conda_envs/evaluation/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 8,
+    "cpu_freq": {
+        "current": 4616.962125,
+        "min": 800.0,
+        "max": 4900.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 4600.049,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4668.208,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4628.799,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4606.608,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4604.344,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4613.687,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4607.212,
+            "min": 800.0,
+            "max": 4900.0
+        },
+        {
+            "current": 4606.79,
+            "min": 800.0,
+            "max": 4900.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 441.865234375,
+            "used": 147.0400390625
+        }
+    },
+    "gpu": "Quadro P400",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "Quadro P400",
+            "memory_total": 2097086464
+        }
+    ],
+    "memory": {
+        "total": 31.331741333007812
+    }
+}

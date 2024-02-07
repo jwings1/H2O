@@ -8,13 +8,13 @@ from scipy.spatial.transform import Rotation
 import torch.nn as nn
 from smplpytorch.pytorch.smpl_layer import SMPL_Layer
 import open3d as o3d
-from labels import labels
-from behave_dataset import BehaveDatasetOffset, BehaveDataModule
-from utils import *
+from data.labels import labels
+from data.behave_dataset import BehaveDatasetOffset, BehaveDataModule
+from data.utils import *
 
 # Options for creating/loading dataset and data module
-create_new_dataset = False  # Set to True to create a new dataset
-load_existing_dataset = True  # Set to True to load an existing dataset
+create_new_dataset = True  # Set to True to create a new dataset
+load_existing_dataset = False  # Set to True to load an existing dataset
 save_data_module = True  # Set to True to save a data module
 load_data_module = False  # Set to True to load a data module
 
@@ -38,7 +38,7 @@ split_dict = load_split_from_path(path_to_file)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Function to create or load dataset
-def create_or_load_dataset():
+def create_or_load_dataset(data_file_path):
     if os.path.exists(data_file_path) and not create_new_dataset:
         # Load the saved data
         with open(data_file_path, "rb") as f:
@@ -47,7 +47,6 @@ def create_or_load_dataset():
         # Create a new dataset
         N = 1
 
-        wandb.run.name = wandb.run.name + name
         processed_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
         print("Processing labels:", labels, flush=True)
 
@@ -98,7 +97,7 @@ def create_or_load_dataset():
                 print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int), flush=True)
                 del all_data_frames
 
-                objects = project_frames(all_data_frames_int, timestamps, N)
+                objects = project_frames(all_data_frames_int, timestamps, N, base_path_template, base_path_trace, label)
                 print("Projection done. Length of projected frames:", len(objects), flush=True)
                 del all_data_frames_int
 
@@ -121,14 +120,14 @@ def create_or_load_dataset():
     return dataset
 
 # Create or load dataset
-dataset = create_or_load_dataset()
+dataset = create_or_load_dataset(data_file_path)
 
 if save_data_module:
     # Contains all the logic
     behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
 
     # Combine wandb.run.name to create a unique name for the saved file
-    save_file_name = f"{wandb.run.name}_BEHAVE_singlebatch.pt"
+    save_file_name = f"BEHAVE_singlebatch.pt"
     data_file_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module"
     full_save_path = os.path.join(data_file_path, save_file_name)
 
