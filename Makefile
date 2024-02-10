@@ -9,7 +9,7 @@
 #################################################################################
 
 PROJECT_NAME = h2o_ca
-PYTHON_VERSION = A New Appr
+PYTHON_VERSION = 3.8.18
 PYTHON_INTERPRETER = python
 
 #################################################################################
@@ -18,7 +18,9 @@ PYTHON_INTERPRETER = python
 
 ## Set up python interpreter environment
 create_environment:
-	conda create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) --no-default-packages -y
+	export PIP_CACHE_DIR=/biwidl307/lgermano/scratch/.cache
+	CONDA_OVERRIDE_CUDA=11.7 conda create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) pytorch=2.0.1 pytorch-cuda=11.7 torchvision cudatoolkit=11.7 pytorch-lightning scipy wandb matplotlib --channel pytorch --channel nvidia -y
+	conda activate $(PROJECT_NAME)
 
 ## Install Python Dependencies
 requirements:

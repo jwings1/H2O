@@ -1,0 +1,188 @@
+{
+    "os": "Linux-4.19.0-26-amd64-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-02-09T10:40:41.593212",
+    "startedAt": "2024-02-09T10:40:41.366897",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "train_model.py",
+    "codePathLocal": "train_model.py",
+    "codePath": "h2o_ca/train_model.py",
+    "git": {
+        "remote": "https://github.com/jwings1/H2O.git",
+        "commit": "ec9c8a99a18e2b5cf8c994db768f50d645ff1cc5"
+    },
+    "email": "lorenzogermano1@outlook.it",
+    "root": "/scratch_net/biwidl307/lgermano/H2O",
+    "host": "biwirender15",
+    "username": "lgermano",
+    "executable": "/itet-stor/lgermano/net_scratch/conda_envs/evaluation/bin/python",
+    "cpu_count": 28,
+    "cpu_count_logical": 28,
+    "cpu_freq": {
+        "current": 1282.730142857143,
+        "min": 1200.0,
+        "max": 3300.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1922.107,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 2146.171,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1839.172,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.124,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.438,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.24,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.545,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.377,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.207,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1199.913,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1199.976,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.574,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.289,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.489,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.334,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.632,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.53,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1201.024,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.761,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.105,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.373,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.186,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.351,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.74,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.1,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.105,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.1,
+            "min": 1200.0,
+            "max": 3300.0
+        },
+        {
+            "current": 1200.481,
+            "min": 1200.0,
+            "max": 3300.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 36.492637634277344,
+            "used": 10.097694396972656
+        }
+    },
+    "gpu": "NVIDIA TITAN Xp COLLECTORS EDITION",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA TITAN Xp COLLECTORS EDITION",
+            "memory_total": 12788498432
+        }
+    ],
+    "memory": {
+        "total": 503.79432678222656
+    }
+}

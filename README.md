@@ -75,6 +75,20 @@ Created using [mlops_template](https://github.com/SkafteNicki/mlops_template),
 a [cookiecutter template](https://github.com/cookiecutter/cookiecutter) for getting
 started with Machine Learning Operations (MLOps). 🚀
 
+## Build Environment
+
+To create the required environment, use the following command:
+
+```bash
+CONDA_OVERRIDE_CUDA=11.7 conda create --name pytcu11 pytorch=2.0.1 pytorch-cuda=11.7 torchvision cudatoolkit=11.7 pytorch-lightning scipy wandb matplotlib --channel pytorch --channel nvidia
+```
+You can also check the `environment.yml` file located at `/scratch/lgermano/H2O/environment.yml`.
+
+Ensure that your PyTorch and CUDA versions match the compatibility matrix. Refer to [NVIDIA's Dependency Matrix](https://docs.nvidia.com/deploy/cuda-compatibility/index.html#binary-compatibility__table-toolkit-driver) for guidance on compatible versions.
+
+Missing libraries can be installed via `pip install`.
+
+
 ## Dataset Acquisition and Setup 📦
 
 ### 1. Downloading the Dataset 📥
@@ -102,19 +116,43 @@ After downloading all the sequences, you can extract them using the following co
 unzip "Date*.zip" -d sequences
 ```
 
-### Build Environment
+#### 2. Set up paths
 
-To create the required environment, use the following command:
+For dataset creation, paths to various resources in make_dataset.py are required. Here are the defaults used in the project:
 
-```bash
-CONDA_OVERRIDE_CUDA=11.7 conda create --name pytcu11 pytorch=2.0.1 pytorch-cuda=11.7 torchvision cudatoolkit=11.7 pytorch-lightning scipy wandb matplotlib --channel pytorch --channel nvidia
-```
+- **GT Annotations**: `/scratch_net/biwidl307_second/lgermano/behave/behave-30fps-params-v1`
+- **TRACE Results**: `/srv/beegfs02/scratch/3dhumanobjint/data/TRACE_results`
+- **Object Template**: `/scratch_net/biwidl307_second/lgermano/behave`
+- **BEHAVE Split File**: `/scratch_net/biwidl307_second/lgermano/behave/split.json`
 
-You can also check the `environment.yml` file located at `/scratch/lgermano/H2O/environment.yml`.
+#### Adjusting Paths
 
-Ensure that your PyTorch and CUDA versions match the compatibility matrix. Refer to [NVIDIA's Dependency Matrix](https://docs.nvidia.com/deploy/cuda-compatibility/index.html#binary-compatibility__table-toolkit-driver) for guidance on compatible versions.
+Please adjust the paths according to your project's storage and organization:
 
-### Training
+1. **Dataset File Path**: Change the `data_file_path` to retrieve a generated dataset
+   ```python
+   data_file_path = "/your_path_here/datasets/your_dataset_here.pkl"
+   ```
+
+2. **Base Path for Annotations**: Update `base_path_annotations` to where your annotations are stored.
+   ```python
+   base_path_annotations = "/your_path_here/behave/behave-30fps-params-v1"
+   ```
+
+3. **Base Path for TRACE Results (or the method of choice)**: Modify `base_path_trace` if your TRACE results are stored in a different location.
+   ```python
+   base_path_trace = "/your_path_here/data/TRACE_results"
+   ```
+
+4. **Template and Split File Paths**: Ensure `base_path_template` and `path_to_file` reflect your directory structure.
+   ```python
+   base_path_template = "/your_path_here/behave"
+   path_to_file = "/your_path_here/behave/split.json"
+   ```
+
+## Training 
+
+### Running the job
 
 You can explore certain hyperparameters through a grid search by setting their ranges as flags, as shown in the example:
 
@@ -122,7 +160,59 @@ You can explore certain hyperparameters through a grid search by setting their r
 sbatch H2O_train6_object.sh --first_option='pose' --second_option='joints' --third_option='obj_pose' --fourth_option='obj_trans' --name='block_cam2'
 ```
 
-A wrapper is used to communicate with the cluster. The execution calls `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize with old checkpoints.
+### Cluster Job Submission Guide
+
+#### SLURM Script Template
+
+Below are parts of SLURM script train_model.sh. Ensure you replace the placeholders with the actual paths relevant to your setup.
+
+```bash
+#!/bin/bash
+
+#SBATCH --job-name="train model"
+#SBATCH --error=/your_path_here/H2O/h2o_ca/log/error/%j.err
+#SBATCH --output=/your_path_here/H2O/h2o_ca/log/out/%j.out
+
+# Set up the Conda environment
+source /your_conda_path_here/etc/profile.d/conda.sh
+conda activate evaluation
+
+# Set necessary environment variables
+export PYTHONPATH=/your_path_here/smplpytorch/smplpytorch:$PYTHONPATH
+export CONDA_OVERRIDE_CUDA=11.8
+export WANDB_DIR=/your_path_here/H2O/h2o_ca/log/cache
+
+# Execute the Python training script
+python /your_path_here/H2O/H2O_ca/train_model.py "$@"
+```
+
+#### Adjusting Paths
+
+- **SBATCH Directives**: Adjust the paths in `--error` and `--output` to point to your log directories.
+- **Conda Activation**: Replace `/your_conda_path_here/etc/profile.d/conda.sh` with the path where your Conda is initialized.
+- **Environment Variables**:
+  - `PYTHONPATH`: Update with the path to your Python modules or packages if necessary.
+  - `WANDB_DIR`: Set this to the directory where you want Weights & Biases to store its logs.
+- **Python Script Execution**: Change the path in the `python` command to where your training script is located.
+
+### Running Your Job
+
+After adjusting the paths in the SLURM script, monitor your job's progress through the SLURM utilities (`squeue`, `sacct`, etc.) and the log files specified in the SBATCH directives.
+
+Make sure all paths and environment names are correctly set to match your project and cluster environment.
+
+The execution calls `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize with old checkpoints.
+
+
+
+
+
+
+
+
+
+
+
 
 ### Inference
 
