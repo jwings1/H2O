@@ -1,0 +1,87 @@
+wandb_version: 1
+
+learning_rate:
+  desc: null
+  value: 0.0001
+architecture:
+  desc: null
+  value: H2O_CA
+dataset:
+  desc: null
+  value: BEHAVE
+batch_size:
+  desc: null
+  value: 16
+dropout_rate:
+  desc: null
+  value: 0.05
+layer_sizes_1:
+  desc: null
+  value:
+  - 256
+  - 256
+  - 256
+layer_sizes_3:
+  desc: null
+  value:
+  - 64
+  - 128
+  - 256
+  - 128
+  - 64
+lambda_1:
+  desc: null
+  value: 1
+lambda_2:
+  desc: null
+  value: 1
+L:
+  desc: null
+  value: 4
+epochs:
+  desc: null
+  value: 12
+optimizer:
+  desc: null
+  value: AdamW
+_wandb:
+  desc: null
+  value:
+    python_version: 3.8.18
+    cli_version: 0.16.2
+    framework: lightning
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1707761799.502935
+    t:
+      1:
+      - 1
+      - 5
+      - 9
+      - 41
+      - 53
+      - 55
+      - 103
+      2:
+      - 1
+      - 5
+      - 9
+      - 41
+      - 53
+      - 55
+      - 103
+      3:
+      - 1
+      - 16
+      - 23
+      4: 3.8.18
+      5: 0.16.2
+      8:
+      - 5
+      13: linux-x86_64
+frames_subclip:
+  desc: null
+  value: 12
+masked_frames:
+  desc: null
+  value: 4

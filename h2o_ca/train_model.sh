@@ -34,7 +34,7 @@ export PYTHONPATH=/scratch_net/biwidl307/lgermano/smplpytorch/smplpytorch:$PYTHO
 export CONDA_OVERRIDE_CUDA=11.8
 export WANDB_DIR=/scratch_net/biwidl307/lgermano/H2O/log/cache
 
-python /scratch_net/biwidl307/lgermano/H2O/H2O_ca/train_model.py "$@"
+python /scratch_net/biwidl307/lgermano/H2O/h2o_ca/train_model.py "$@"
 
 echo "DONE!"
 

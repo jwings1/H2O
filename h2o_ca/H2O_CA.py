@@ -86,7 +86,7 @@ class CombinedTrans(pl.LightningModule):
             nhead=self.num_heads,
             num_encoder_layers=2,
             num_decoder_layers=1,
-            dropout=0.05,
+            dropout=wandb.config.dropout_rate,
             activation="gelu",
         )
 
@@ -95,7 +95,7 @@ class CombinedTrans(pl.LightningModule):
             nhead=self.num_heads,
             num_encoder_layers=2,
             num_decoder_layers=1,
-            dropout=0.05,
+            dropout=wandb.config.dropout_rate,
             activation="gelu",
         )
 
@@ -281,7 +281,7 @@ class CombinedTrans(pl.LightningModule):
                 predicted_obj_trans[:, -self.masked_frames :, :], GT_obj_trans[:, -self.masked_frames :, :]
             )
 
-            total_loss = pose_loss + trans_loss
+            total_loss = wandb.config.lambda_1 * pose_loss + wandb.config.lambda_2 * trans_loss
             mean_total_loss = torch.mean(total_loss)
 
             # Logging the losses
@@ -327,10 +327,10 @@ class CombinedTrans(pl.LightningModule):
             # Update obj_pose, obj_trans. Roll along the window dimension. dim = 3
 
             obj_pose = torch.roll(obj_pose, -1, 0)
-            obj_pose[-masked_frames - 1, :] = predicted_obj_pose[:, -masked_frames, :]
+            obj_pose[-self.masked_frames - 1, :] = predicted_obj_pose[:, -self.masked_frames, :]
 
             obj_trans = torch.roll(obj_trans, -1, 0)
-            obj_trans[-masked_frames - 1, :] = predicted_obj_trans[:, -masked_frames, :]
+            obj_trans[-self.masked_frames - 1, :] = predicted_obj_trans[:, -self.masked_frames, :]
 
         return None
 

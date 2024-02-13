@@ -1,0 +1,174 @@
+{
+    "os": "Linux-4.19.0-26-amd64-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-02-12T20:08:33.546803",
+    "startedAt": "2024-02-12T20:08:33.356439",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--first_option=pose",
+        "--second_option=joints",
+        "--third_option=obj_pose",
+        "--fourth_option=obj_trans",
+        "--name=reproduce_overfit"
+    ],
+    "state": "running",
+    "program": "train_model.py",
+    "codePathLocal": "train_model.py",
+    "codePath": "h2o_ca/train_model.py",
+    "git": {
+        "remote": "https://github.com/jwings1/H2O.git",
+        "commit": "3cac0855f33b32c9a1db347204da12b1fd03b577"
+    },
+    "email": "lorenzogermano1@outlook.it",
+    "root": "/scratch_net/biwidl307/lgermano/H2O",
+    "host": "biwirender10",
+    "username": "lgermano",
+    "executable": "/itet-stor/lgermano/net_scratch/conda_envs/evaluation/bin/python",
+    "cpu_count": 24,
+    "cpu_count_logical": 24,
+    "cpu_freq": {
+        "current": 1541.922125,
+        "min": 1200.0,
+        "max": 2900.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 1200.112,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2027.749,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1598.898,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1199.972,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.235,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2768.077,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.424,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.838,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.058,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.191,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.11,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.068,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2687.98,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2688.024,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2629.753,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.156,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 2200.23,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.463,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.068,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.19,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.949,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.357,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.846,
+            "min": 1200.0,
+            "max": 2900.0
+        },
+        {
+            "current": 1200.383,
+            "min": 1200.0,
+            "max": 2900.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 36.492637634277344,
+            "used": 13.031044006347656
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX TITAN X",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX TITAN X",
+            "memory_total": 12806127616
+        }
+    ],
+    "memory": {
+        "total": 251.78782272338867
+    }
+}

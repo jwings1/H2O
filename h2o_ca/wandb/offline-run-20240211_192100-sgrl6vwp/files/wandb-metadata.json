@@ -1,0 +1,134 @@
+{
+    "os": "Linux-4.19.0-26-amd64-x86_64-with-glibc2.10",
+    "python": "3.8.18",
+    "heartbeatAt": "2024-02-11T18:21:00.583457",
+    "startedAt": "2024-02-11T18:21:00.380397",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--first_option=pose",
+        "--second_option=joints",
+        "--third_option=obj_pose",
+        "--fourth_option=obj_trans",
+        "--name=reproduce_overfit"
+    ],
+    "state": "running",
+    "program": "train_model.py",
+    "codePathLocal": "train_model.py",
+    "codePath": "h2o_ca/train_model.py",
+    "git": {
+        "remote": "https://github.com/jwings1/H2O.git",
+        "commit": "3cac0855f33b32c9a1db347204da12b1fd03b577"
+    },
+    "email": "lorenzogermano1@outlook.it",
+    "root": "/scratch_net/biwidl307/lgermano/H2O",
+    "host": "biwirender05",
+    "username": "lgermano",
+    "executable": "/itet-stor/lgermano/net_scratch/conda_envs/evaluation/bin/python",
+    "cpu_count": 8,
+    "cpu_count_logical": 16,
+    "cpu_freq": {
+        "current": 2994.4325625000006,
+        "min": 1200.0,
+        "max": 3800.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 3499.483,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.258,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.294,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.14,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2307.022,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2399.296,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2674.021,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2592.202,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.61,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.255,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.257,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 3500.254,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2833.011,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2336.154,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2583.391,
+            "min": 1200.0,
+            "max": 3800.0
+        },
+        {
+            "current": 2184.273,
+            "min": 1200.0,
+            "max": 3800.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 91.4844856262207,
+            "used": 9.760482788085938
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX TITAN X",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX TITAN X",
+            "memory_total": 12806127616
+        }
+    ],
+    "memory": {
+        "total": 251.88533401489258
+    }
+}

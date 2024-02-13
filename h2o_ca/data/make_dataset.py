@@ -1,56 +1,49 @@
-import torch
-from torch.utils.data import Dataset, DataLoader
 import os
 import pickle
 import numpy as np
-import pytorch_lightning as pl
-from scipy.spatial.transform import Rotation
-import torch.nn as nn
-from smplpytorch.pytorch.smpl_layer import SMPL_Layer
-import open3d as o3d
+import gc
 from data.labels import labels
 from data.behave_dataset import BehaveDatasetOffset, BehaveDataModule
 from data.utils import *
 
-# Options for creating/loading dataset and data module
-create_new_dataset = True  # Set to True to create a new dataset
-load_existing_dataset = False  # Set to True to load an existing dataset
-save_data_module = True  # Set to True to save a data module
-load_data_module = False  # Set to True to load a data module
+# Parameters
+frames_subclip = wandb.config.frames_subclip
+masked_frames = wandb.config.masked_frames
+l = wandb.config.L
+create_new_dataset = wandb.config.create_new_dataset
+load_existing_dataset = wandb.config.load_existing_dataset
+save_data_module = wandb.config.save_data_module
+load_data_module = wandb.config.load_data_module
 
-# Retrieve dataset
+# Paths and settings
 data_file_path = "/scratch_net/biwidl307/lgermano/H2O/datasets/behave_test8.pkl"
-
-# Dataset creation
 base_path_annotations = "/scratch_net/biwidl307_second/lgermano/behave/behave-30fps-params-v1"
 base_path_trace = "/srv/beegfs02/scratch/3dhumanobjint/data/TRACE_results"
 base_path_template = "/scratch_net/biwidl307_second/lgermano/behave"
 path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
 
-# Define labels, camera IDs, and frame range
-cam_ids = [0, 1, 2, 3]
-frames_subclip = 12
-masked_frames = 4
-selected_keys = ["SMPL_pose", "SMPL_joints", "OBJ_pose", "OBJ_trans"]  # Add other keys as needed
+cam_ids = wandb.config.cam_ids #[1]
+#E.g.
+#selected_keys = ["SMPL_pose", "SMPL_joints", "OBJ_pose", "OBJ_trans"]
+selected_keys = [wandb.config.first_option,wandb.config.second_option, wandb.config.third_option, wandb.config.fourth_option]
 split_dict = load_split_from_path(path_to_file)
 
-# Specify device
+# Device configuration
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Function to create or load dataset
-def create_or_load_dataset(data_file_path):
+# Create or load dataset
+dataset = None
+if create_new_dataset or load_existing_dataset:
     if os.path.exists(data_file_path) and not create_new_dataset:
         # Load the saved data
         with open(data_file_path, "rb") as f:
             dataset = pickle.load(f)
     elif create_new_dataset:
         # Create a new dataset
-        N = 1
+        #N = 1
 
         processed_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
         print("Processing labels:", labels, flush=True)
-
-        dataset = []
 
         for label in labels:
             if True:  # label not in labels_existing:
@@ -93,11 +86,11 @@ def create_or_load_dataset(data_file_path):
 
                     all_data_frames.append(frame_data)
 
-                all_data_frames_int = interpolate_frames(all_data_frames, N)
+                all_data_frames_int = interpolate_frames(all_data_frames, l)
                 print("Interpolation done. Length of interpolated frames:", len(all_data_frames_int), flush=True)
                 del all_data_frames
 
-                objects = project_frames(all_data_frames_int, timestamps, N, base_path_template, base_path_trace, label)
+                objects = project_frames(all_data_frames_int, timestamps, l, base_path_template, base_path_trace, label)
                 print("Projection done. Length of projected frames:", len(objects), flush=True)
                 del all_data_frames_int
 
@@ -117,17 +110,15 @@ def create_or_load_dataset(data_file_path):
                 print(f"Saved data for {label} to {data_file_path}", flush=True)
                 del objects
                 gc.collect()
-    return dataset
 
-# Create or load dataset
-dataset = create_or_load_dataset(data_file_path)
-
+# Initialize BehaveDataModule and save or load
+data_module = None
 if save_data_module:
     # Contains all the logic
     behave_dataset = BehaveDatasetOffset(labels, cam_ids, frames_subclip, selected_keys, wandb, device)
 
     # Combine wandb.run.name to create a unique name for the saved file
-    save_file_name = f"BEHAVE_singlebatch.pt"
+    save_file_name = f"test.pt"
     data_file_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module"
     full_save_path = os.path.join(data_file_path, save_file_name)
 
@@ -140,8 +131,13 @@ if save_data_module:
         pickle.dump(data_module, f)
 
 if load_data_module:
+    save_file_name = f"test.pt"
+    data_file_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module"
+    full_save_path = os.path.join(data_file_path, save_file_name)
+
     # Load the data
     with open(full_save_path, 'rb') as f:
         data_module = pickle.load(f)
 
 print("Dataset loaded", flush=True)
+
