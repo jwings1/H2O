@@ -1,7 +1,7 @@
 ![Header Image](/reports/figures/FireflyHuman2Object.png)
 *Image credits: [Firefly](https://firefly.adobe.com/generate/font-styles?prompt=Water%2C+ocean%2C+bubbles&fitType=loose&seed=36001&text=Human2Object&font=alfarn-2&bgColor=transparent&textColor=transparent&var=13865&var=17773&var=86511&dl=it-IT&ff_campaign=ffly_homepage&ff_source=firefly_seo&ff_channel=adobe_com)*
 
-# **3D Human-Object Interaction in Video:** *A New Approach to Object Tracking via Cross-Modal Attention* 🤖📷
+# **3D Human-Object Interaction in Video:** *A New Approach to Object Tracking via Cross-Modal Attention*
 
 A novel framework for 6-DoF (Six Degrees of Freedom) object tracking in RGB video is introduced, named H2O-CA (Human to Object -- Cross Attention). This framework adopts a sequence-to-sequence approach: it utilizes a method for the regression of avatars to parametrically model the human body, then groups offsets in a sliding-window fashion, and employs a cross-modal attention mechanism to attend human pose to object pose.
 
@@ -296,10 +296,13 @@ python train_model.py --first_option SMPL_pose --learning_rate 0.0001 --epochs 1
 
 ### Example Video 📹
 
-<video width="320" height="240" controls>
-  <source src="/scratch/lgermano/H2O/reports/videos/Date02_Sub02_boxsmall_hand_20240117_003809.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<div style="text-align: center;">
+  <video width="320" height="240" controls>
+    <source src="/reports/videos/Date02_Sub02_boxsmall_hand_20240117_003809.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</div>
+
 
 # Project Files 📄
 
