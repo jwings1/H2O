@@ -1,5 +1,5 @@
-![Header Image](/scratch/lgermano/H2O/reports/figures/Human2Object-2-6-2024.png)
-*Image credits: [Font generator](https://www.textstudio.com/)*
+![Header Image](/reports/figures/FireflyHuman2Object.png)
+*Image credits: [Firefly](https://firefly.adobe.com/generate/font-styles?prompt=Water%2C+ocean%2C+bubbles&fitType=loose&seed=36001&text=Human2Object&font=alfarn-2&bgColor=transparent&textColor=transparent&var=13865&var=17773&var=86511&dl=it-IT&ff_campaign=ffly_homepage&ff_source=firefly_seo&ff_channel=adobe_com)*
 
 # 3D Human-Object Interaction in Video: A New Approach to Object Tracking via Cross-Modal Attention 🤖📷
 
@@ -20,55 +20,61 @@ Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). A
 
 The directory structure of the project looks like this:
 
+Sure, here's an updated version of your project structure with arrows, descriptions, and emojis, similar to the format you've provided:
+
 ```txt
-├── Makefile             <- Makefile with convenience commands like `make data` or `make train` 📦
-├── README.md            <- The top-level README for developers using this project. 📚
+User
+├── LICENSE                                     <- Open-source license if one is chosen 📜
+├── Makefile                                    <- Makefile with convenience commands like `make data` or `make train` 📦
+├── README.md                                   <- The top-level README for developers using this project 📚
 ├── data
-│   ├── processed        <- The final, canonical data sets for modeling. 📊
-│   └── raw              <- The original, immutable data dump. 📥
+│   ├── processed                               <- The final, canonical data sets for modeling 📊
+│   └── raw                                     <- The original, immutable data dump 📥
 │
-├── docs                 <- Documentation folder 📃
+├── docs                                        <- Documentation folder 📃
 │   │
-│   ├── index.md         <- Homepage for your documentation 🏠
+│   ├── index.md                                <- Homepage for your documentation 🏠
 │   │
-│   ├── mkdocs.yml       <- Configuration file for mkdocs ⚙️
+│   ├── mkdocs.yml                              <- Configuration file for mkdocs ⚙️
 │   │
-│   └── source/          <- Source directory for documentation files 📝
+│   └── source/                                 <- Source directory for documentation files 📝
 │
-├── models               <- Trained and serialized models, model predictions, or model summaries 🤖
+├── models                                      <- Trained and serialized models, model predictions, or model summaries 🤖
 │
-├── notebooks            <- Jupyter notebooks 📓
+├── notebooks                                   <- Jupyter notebooks for explorations and experiments 📓
 │
-├── pyproject.toml       <- Project configuration file ⚙️
+├── pyproject.toml                              <- Project configuration file, typically for Python projects ⚙️
 │
-├── reports              <- Generated analysis as HTML, PDF, LaTeX, etc. 📊
-│   └── figures          <- Generated graphics and figures to be used in reporting 📈
+├── reports                                     <- Generated analysis as HTML, PDF, LaTeX, etc. 📊
+│   └── figures                                 <- Generated graphics and figures to be used in reporting 📈
 │
-├── requirements.txt     <- The requirements file for reproducing the analysis environment 🐍
+├── requirements.txt                            <- The requirements file for reproducing the analysis environment 🐍
+
+```txt
+├── requirements_dev.txt                        <- Additional requirements for development purposes, like testing or building documentation 🧪
 │
-├── requirements_dev.txt <- The requirements file for reproducing the analysis environment 🧪
+├── tests                                       <- Automated tests for the software 🧪
 │
-├── tests                <- Test files 🧪
-│
-├── h2o_ca  <- Source code for use in this project. 📁
+├── h2o_ca                                      <- Source code for use in this project 📁
 │   │
-│   ├── __init__.py      <- Makes folder a Python module 🐍
+│   ├── __init__.py                             <- Makes h2o_ca a Python module 🐍
 │   │
-│   ├── data             <- Scripts to download or generate data 📦
+│   ├── data                                    <- Scripts to download or generate data 📦
 │   │   ├── __init__.py
 │   │   └── make_dataset.py
 │   │
-│   ├── models           <- model implementations, training script and prediction script 🤖
+│   ├── models                                  <- Model implementations, training and prediction scripts 🤖
 │   │   ├── __init__.py
 │   │   ├── model.py
 │   │
-│   ├── visualization    <- Scripts to create exploratory and results oriented visualizations 📊
+│   ├── visualization                           <- Scripts to create exploratory and results oriented visualizations 📊
 │   │   ├── __init__.py
 │   │   └── visualize.py
-│   ├── train_model.py   <- script for training the model 🚂
-│   └── predict_model.py <- script for predicting from a model 🚀
+│   │
+│   ├── train_model.py                          <- Script for training the model 🚂
+│   └── predict_model.py                        <- Script for making predictions with a trained model 🚀
 │
-└── LICENSE              <- Open-source license if one is chosen 📜
+└── LICENSE                                     <- Open-source license if one is chosen 📜
 ```
 
 Created using [mlops_template](https://github.com/SkafteNicki/mlops_template),
@@ -203,16 +209,84 @@ Make sure all paths and environment names are correctly set to match your projec
 
 The execution calls `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize with old checkpoints.
 
+### Dataset Usage Example
 
+To access and utilize the dataset for research or application development, you can follow this Python code snippet:
 
+```python
+# Assuming 'data' is your dataset loaded from the pickle file
+num_camera_views = len(data)
+print(f"Number of camera views in the dataset: {num_camera_views}")
 
+# Accessing data from the first camera view
+first_camera_view_data = data[0]
+num_frames_first_view = len(first_camera_view_data)
+print(f"Number of frames in the first camera view: {num_frames_first_view}")
 
+# Accessing the first frame in the first camera view
+first_frame_data = first_camera_view_data[0]
+frame_keys = first_frame_data.keys()
+print(f"Data keys available in a frame: {frame_keys}")
+```
 
+## Command-Line Interface Options
+The following CLI options are available for configuring the training process:
 
+### Model and Data Configuration Options
 
+- `--first_option`: Specify the first option for the input data type. Choices include `SMPL_pose`, `pose_trace`, `unrolled_pose`, `unrolled_pose_trace`, `enc_unrolled_pose`, `enc_unrolled_pose_trace`. This option defines the primary input feature set for the model.
+  
+- `--second_option`: Specify the second option for the input data type. Choices are `SMPL_joints`, `distances`, `joints_trace`, `norm_joints`, `norm_joints_trace`, `enc_norm_joints`, `enc_norm_joints_trace`. Selects the secondary input feature set for model training.
+  
+- `--third_option`: Choose between `OBJ_pose` and `enc_obj_pose` for the third input data type, focusing on object pose information.
+  
+- `--fourth_option`: Defines the fourth input data type with choices `OBJ_trans`, `norm_obj_trans`, `enc_norm_obj_trans`, focusing on object transformation data.
 
+- `--scene`: Include scene information in the options. Default is `scene`.
 
+### Training Configuration Options
 
+- `--learning_rate`: Set the learning rate(s) for training. Accepts multiple values for experiments. Default is `0.0001`.
+  
+- `--epochs`: Number of epochs for training. Can specify multiple values. Default is `2`.
+  
+- `--batch_size`: Batch size for training. Accepts multiple values. Default is `16`.
+  
+- `--dropout_rate`: Dropout rate for the model. Accepts multiple values. Default is `0.05`.
+  
+- `--lambda_1`: Weight for the pose_loss. Default is `1`.
+  
+- `--lambda_2`: Weight for the trans_loss. Default is `1`.
+  
+- `--optimizer`: Choose the optimizer for training. Options are `AdamW`, `Adagrad`, `Adadelta`, `LBFGS`, `Adam`, `RMSprop`. Default is `AdamW`.
+
+### Miscellaneous Options
+
+- `--name`: Set a name for the training run, which will default to a timestamp.
+  
+- `--frames_subclip`: Number of frames per subclip. Default is `12`.
+  
+- `--masked_frames`: Number of masked frames. Default is `4`.
+  
+- `--L`: Number of interpolation frames L. Default is `1`.
+
+- `--create_new_dataset`: Enable this option to create a new dataset for training.
+  
+- `--load_existing_dataset`: Enable this option to load an existing dataset for training.
+  
+- `--save_data_module`: Specify whether to save the data module after processing.
+  
+- `--load_data_module`: Specify whether to load the data module. Default is enabled.
+
+- `--cam_ids`: Camera IDs used for training. Accepts multiple values. Default is `1`.
+
+See https://github.com/jwings1/3DObjTracking/tree/master for a comparison of methods of regressing avatars.
+
+### Example Usage
+
+```bash
+python train_model.py --first_option SMPL_pose --learning_rate 0.0001 --epochs 10 --batch_size 16
+```
 
 ### Inference
 
@@ -230,47 +304,8 @@ This repository contains various files and scripts related to the project. Below
 ## Directories 📁
 
 ### trained_models/H2O 🤖
-- Description: Directory containing trained models for H2O. 🧠
-- Latest Commit: [Commit ID](link to commit) 🔄
-- Last Updated: X months ago 📅
 
-## Files 📄
-
-### .gitignore 🚫
-- Description: Git ignore file to specify which files and directories should be ignored. 🙈
-- Latest Commit: [Commit ID](link to commit) 🔄
-- Last Updated: 3 months ago 📅
-
-### H2O_a.sh 📜
-- Description: Script with added cross attention. 🤖✨
-- Latest Commit: [Commit ID](link to commit) 🔄
-- Last Updated: 2 months ago 📅
-
-
-## Scripts and Utilities 🛠️
-
-### MLP.py 📜
-- Description: Initial commit of MLP script. 🚀
-- Latest Commit: [Commit ID](link to commit) 🔄
-- Last Updated: 5 months ago 📅
-
-## Other Files 📄
-
-### README.md 📚
-- Description: README file for the repository. 📖
-- Latest Commit: [Commit ID](link to commit) 🔄
-- Last Updated: Yesterday 📅
-
-
-## Model Files 🤖
-
-### model_encoder_only_epoch_4.pt 🧠
-- Description: Encoder-only model checkpoint. 📈
-- Latest Commit: [Commit ID](https://github.com/jwings1/H2O/tree/2695d4ea13a20c6a675f5a587ee90bb9cbf5e2f1) 🔄
-- Last Updated: 2 days ago 📅
-
-
-## Scripts and Utilities 🛠️
+## Scripts and Utilities 
 
 
 ## Citing 📝
