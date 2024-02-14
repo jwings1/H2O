@@ -3,6 +3,7 @@ import gc
 import argparse
 import itertools
 from datetime import datetime
+import pdb
 import torch
 import pytorch_lightning as pl
 import wandb
@@ -54,28 +55,25 @@ def create_parser():
     )
     parser.add_argument("--scene", default=["scene"], help="Include scene in the options.")
     parser.add_argument("--learning_rate", nargs="+", type=float, default=[1e-4])
-    parser.add_argument("--epochs", nargs="+", type=int, default=[12])
+    parser.add_argument("--epochs", nargs="+", type=int, default=[2])
     parser.add_argument("--batch_size", nargs="+", type=int, default=[16])
     parser.add_argument("--dropout_rate", nargs="+", type=float, default=[0.05])
     parser.add_argument("--lambda_1", nargs="+", type=float, default=[1], help="Weight for pose_loss.")
     parser.add_argument("--lambda_2", nargs="+", type=float, default=[1], help="Weight for trans_loss.")
-    parser.add_argument("--L", nargs="+", type=int, default=[1], choices=[4])
     parser.add_argument(
         "--optimizer",
         nargs="+",
         default=["AdamW"],
         choices=["AdamW", "Adagrad", "Adadelta", "LBFGS", "Adam", "RMSprop"],
     )
-    parser.add_argument("--layer_sizes_1", nargs="+", type=int, default=[[256, 256, 256]])
-    parser.add_argument("--layer_sizes_3", nargs="+", type=int, default=[[64, 128, 256, 128, 64]])
     parser.add_argument("--name", default=timestamp())
     parser.add_argument("--frames_subclip", type=int, default=12, help="Number of frames per subclip.")
     parser.add_argument("--masked_frames", type=int, default=4, help="Number of masked frames.")
-    parser.add_argument("--L", type=int, default=1, help="Number of interpoaltion frames L.")
+    parser.add_argument("--L", type=int, default=[1], help="Number of interpoaltion frames L.")
     parser.add_argument("--create_new_dataset", action='store_true', help="Whether to create a new dataset.")
     parser.add_argument("--load_existing_dataset", action='store_true', help="Whether to load an existing dataset.")
     parser.add_argument("--save_data_module", action='store_true', help="Whether to save the data module.")
-    parser.add_argument("--load_data_module", action='store_true', help="Whether to load the data module.")
+    parser.add_argument("--load_data_module", action='store_false', help="Whether to load the data module.")
     parser.add_argument("--cam_ids", nargs="+", type=int, default=[1], help="Camera IDs used for training.")
 
     return parser
@@ -101,16 +99,12 @@ if __name__ == "__main__":
     lambda_2_range = args.lambda_2
     L_range = args.L
     optimizer_list = args.optimizer
-    layer_sizes_range_1 = args.layer_sizes_1
-    layer_sizes_range_3 = args.layer_sizes_3
     name = args.name
 
     for (
         lr,
         bs,
         dr,
-        layers_1,
-        layers_3,
         lambda_1,
         lambda_2,
         l,
@@ -120,8 +114,6 @@ if __name__ == "__main__":
         learning_rate_range,
         batch_size_range,
         dropout_rate_range,
-        layer_sizes_range_1,
-        layer_sizes_range_3,
         lambda_1_range,
         lambda_2_range,
         L_range,
@@ -132,8 +124,6 @@ if __name__ == "__main__":
         LEARNING_RATE = lr
         BATCH_SIZE = bs
         DROPOUT_RATE = dr
-        LAYER_SIZES_1 = layers_1
-        LAYER_SIZES_3 = layers_3
         INITIAL_OBJ_PRED = torch.rand((BATCH_SIZE, 24))
         LAMBDA_1 = lambda_1
         LAMBDA_2 = lambda_2
@@ -150,8 +140,6 @@ if __name__ == "__main__":
                 "dataset": "BEHAVE",
                 "batch_size": BATCH_SIZE,
                 "dropout_rate": DROPOUT_RATE,
-                "layer_sizes_1": LAYER_SIZES_1,
-                "layer_sizes_3": LAYER_SIZES_3,
                 "lambda_1": LAMBDA_1,
                 "lambda_2": LAMBDA_2,
                 "L": L,
@@ -175,28 +163,21 @@ if __name__ == "__main__":
         # Automatically use CUDA if available, otherwise fall back to CPU
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
-        # Load the model from a checkpoint if needed
-        # checkpoint_path = "your_checkpoint_path.pt"
-        # checkpoint = torch.load(checkpoint_path, map_location=device)
-        # model_combined.load_state_dict(checkpoint)
-        
         best_overall_avg_loss_val = float("inf")
         best_params = None
-        frames_subclip = 12
-        masked_frames = 4
-
-        # Instantiate with custom parameters
-        #data_loader = CustomDataModule(frames_subclip=10, masked_frames=3, l=wandb.config.L)
-        #data_module = data_loader.data_module
-        
-        # Get the data module for training or validation
-        #data_module = custom_data_module.data_module()
+        wandb.run.name = name
 
         # Initialize your model and move it to the appropriate device
-        model_combined = CombinedTrans(frames_subclip=frames_subclip, masked_frames=masked_frames)
+        model_combined = CombinedTrans(frames_subclip=wandb.config.frames_subclip, masked_frames=wandb.config.masked_frames)
         model_combined.to(device)
 
+        # Load the model from a checkpoint if needed
+        #checkpoint_path = "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/models/model_radiant-leaf-3120_epoch_119.pt"
+        #checkpoint = torch.load(checkpoint_path, map_location=device)
+        #model_combined.load_state_dict(checkpoint)
+
         wandb_logger = WandbLogger()
+        # Set log=all to inspect gradients
         wandb_logger.watch(model_combined, log=None, log_freq=10)
 
         # Initialize Trainer
@@ -212,27 +193,14 @@ if __name__ == "__main__":
 
         trainer.fit(model_combined, data_module)
 
-        # Get the current timestamp and format it
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-        # Incorporate the timestamp into the filename
-        filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}_{timestamp}.pt"
-
-        # Save the model
-        torch.save(model_combined.state_dict(), filename)
-
         # Adjusted computation for average validation loss
         if model_combined.best_avg_loss_val < best_overall_avg_loss_val:
             best_overall_avg_loss_val = model_combined.best_avg_loss_val
 
             best_params = {
                 "learning_rate": LEARNING_RATE,
-                "architecture": "MLP",
-                "dataset": "BEHAVE",
                 "batch_size": BATCH_SIZE,
                 "dropout_rate": DROPOUT_RATE,
-                "layer_sizes_1": LAYER_SIZES_1,
-                "layer_sizes_3": LAYER_SIZES_3,
                 "lambda_1": LAMBDA_1,
                 "lambda_2": LAMBDA_2,
                 "L": L,
@@ -243,15 +211,18 @@ if __name__ == "__main__":
             # trainer.test(combined_model, datamodule=data_module)
 
             # Save the model using WandB run ID
-            # filename = f"/scratch_net/biwidl307_second/lgermano/H2O/trained_models/{wandb.run.name}.pt"
-            filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}.pt"
+            # Get the current timestamp and format it
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Incorporate the timestamp into the filename
+            filename = f"/srv/beegfs02/scratch/3dhumanobjint/data/H2O/trained_models/{wandb.run.name}_{timestamp}.pt"
 
             # Save the model
-            torch.save(model_combined, filename)
+            torch.save(model_combined.state_dict(), filename)
 
         # Finish the current W&B run
         wandb.finish()
 
     # After all trials, print the best set of hyperparameters
-    print("Best Validation Loss:", best_overall_avg_loss_val)
+    print("Best Validation Loss:", best_overall_avg_loss_val.detach())
     print("Best Hyperparameters:", best_params)
