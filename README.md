@@ -4,7 +4,7 @@
 # 3D Human-Object Interaction in Video: A New Approach to Object Tracking via Cross-Modal Attention 🤖📷
 
 <p align="center">
-  <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline">
+  <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline" width="50%">
   <br>
   <em>H2O-CA pipeline. In step 1, in a fully recursive approach, the first 8 frames of the video are equipped with an arbitrary reference frame, and successive relative offsets of the position and orientation of the object are computed. In step 2, the sliding window W in input (width 12, offset 1), and the sliding window O of offsets (width 2, offset 1) are portrayed. In step 3, a method for regression of avatars has been applied. In step 4, the regressive unit H2O-CA yields, after hot initialization (green), fully recursive predictions (light blue).</em>
 </p>
