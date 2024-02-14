@@ -3,6 +3,13 @@
 
 # 3D Human-Object Interaction in Video: A New Approach to Object Tracking via Cross-Modal Attention 🤖📷
 
+<p align="center">
+  <img src="scratch/lgermano/H2O/reports/figures/Pipeline.png" alt="H2O-CA pipeline">
+  <br>
+  <em>H2O-CA pipeline. In step 1, in a fully recursive approach, the first 8 frames of the video are equipped with an arbitrary reference frame, and successive relative offsets of the position and orientation of the object are computed. In step 2, the sliding window W in input (width 12, offset 1), and the sliding window O of offsets (width 2, offset 1) are portrayed. In step 3, a method for regression of avatars has been applied. In step 4, the regressive unit H2O-CA yields, after hot initialization (green), fully recursive predictions (light blue).</em>
+</p>
+
+
 A novel framework for 6-DoF (Six Degrees of Freedom) object tracking in RGB video is introduced, named H2O-CA (Human to Object -- Cross Attention). This framework adopts a sequence-to-sequence approach: it utilizes a method for the regression of avatars to parametrically model the human body, then groups offsets in a sliding-window fashion, and employs a cross-modal attention mechanism to attend human pose to object pose.
 
 The study commences by comparing datasets and regression methods for avatars in 5D (TRACE/ROMP/BEV/4DH) and scrutinizing various coordinate systems, including absolute, relative, and trilateration techniques, with the BEHAVE dataset being employed throughout. The significance of human pose in tracking tasks is explored by juxtaposing it with a baseline encoder model that relies solely on object pose.
@@ -11,7 +18,7 @@ Various training configurations, differentiated by their loss functions, are inv
 
 Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). Although the fully recursive tracking approach does not achieve state-of-the-art performance, the potential of next-frame prediction and next-4 frames prediction is acknowledged. The primary application envisioned is in augmented reality (AR).
 
-[![Read the Paper](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](URL_to_PDF)
+[![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf)
 
 
 ```markdown
@@ -49,9 +56,8 @@ User
 │   └── figures                                 <- Generated graphics and figures to be used in reporting 📈
 │
 ├── requirements.txt                            <- The requirements file for reproducing the analysis environment 🐍
-
-```txt
-├── requirements_dev.txt                        <- Additional requirements for development purposes, like testing or building documentation 🧪
+|
+├── requirements_dev.txt                        <- Additional requirements for development purposes 🧪
 │
 ├── tests                                       <- Automated tests for the software 🧪
 │
