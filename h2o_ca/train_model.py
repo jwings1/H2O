@@ -13,7 +13,8 @@ from data.behave_dataset import BehaveDatasetOffset, BehaveDataModule
 from data.utils import *
 
 # Load architecture
-from H2O_CA import CombinedTrans
+# from H2O_CA import CombinedTrans
+from H2O_CA_encoder_only import CombinedTrans
 
 # Function to create a timestamp
 def timestamp():
@@ -55,7 +56,7 @@ def create_parser():
     )
     parser.add_argument("--scene", default=["scene"], help="Include scene in the options.")
     parser.add_argument("--learning_rate", nargs="+", type=float, default=[1e-4])
-    parser.add_argument("--epochs", nargs="+", type=int, default=[2])
+    parser.add_argument("--epochs", nargs="+", type=int, default=[20])
     parser.add_argument("--batch_size", nargs="+", type=int, default=[16])
     parser.add_argument("--dropout_rate", nargs="+", type=float, default=[0.05])
     parser.add_argument("--lambda_1", nargs="+", type=float, default=[1], help="Weight for pose_loss.")
