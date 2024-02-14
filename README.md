@@ -1,14 +1,7 @@
 ![Header Image](/reports/figures/FireflyHuman2Object.png)
 *Image credits: [Firefly](https://firefly.adobe.com/generate/font-styles?prompt=Water%2C+ocean%2C+bubbles&fitType=loose&seed=36001&text=Human2Object&font=alfarn-2&bgColor=transparent&textColor=transparent&var=13865&var=17773&var=86511&dl=it-IT&ff_campaign=ffly_homepage&ff_source=firefly_seo&ff_channel=adobe_com)*
 
-# 3D Human-Object Interaction in Video: A New Approach to Object Tracking via Cross-Modal Attention 🤖📷
-
-<p align="center">
-  <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline" width="50%">
-  <br>
-  <em>H2O-CA pipeline. In step 1, in a fully recursive approach, the first 8 frames of the video are equipped with an arbitrary reference frame, and successive relative offsets of the position and orientation of the object are computed. In step 2, the sliding window W in input (width 12, offset 1), and the sliding window O of offsets (width 2, offset 1) are portrayed. In step 3, a method for regression of avatars has been applied. In step 4, the regressive unit H2O-CA yields, after hot initialization (green), fully recursive predictions (light blue).</em>
-</p>
-
+# **3D Human-Object Interaction in Video:** *A New Approach to Object Tracking via Cross-Modal Attention* 🤖📷
 
 A novel framework for 6-DoF (Six Degrees of Freedom) object tracking in RGB video is introduced, named H2O-CA (Human to Object -- Cross Attention). This framework adopts a sequence-to-sequence approach: it utilizes a method for the regression of avatars to parametrically model the human body, then groups offsets in a sliding-window fashion, and employs a cross-modal attention mechanism to attend human pose to object pose.
 
@@ -20,6 +13,11 @@ Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). A
 
 [![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf)
 
+<p align="center">
+  <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline" width="50%">
+  <br>
+  <em>H2O-CA pipeline. In step 1, in a fully recursive approach, the first 8 frames of the video are equipped with an arbitrary reference frame, and successive relative offsets of the position and orientation of the object are computed. In step 2, the sliding window W in input (width 12, offset 1), and the sliding window O of offsets (width 2, offset 1) are portrayed. In step 3, a method for regression of avatars has been applied. In step 4, the regressive unit H2O-CA yields, after hot initialization (green), fully recursive predictions (light blue).</em>
+</p>
 
 ```markdown
 
