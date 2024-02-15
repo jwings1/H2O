@@ -1,6 +1,0 @@
-Traceback (most recent call last):
-  File "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/train_model.py", line 18, in <module>
-    from data.make_dataset import data_module
-  File "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/data/make_dataset.py", line 151, in <module>
-    data_module = pickle.load(f)
-ModuleNotFoundError: No module named 'behave_dataset'

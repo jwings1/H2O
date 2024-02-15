@@ -1,9 +1,0 @@
-Matplotlib is building the font cache; this may take a moment.
-Traceback (most recent call last):
-  File "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/train_model.py", line 18, in <module>
-    from data.make_dataset import data_module
-  File "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/data/make_dataset.py", line 123, in <module>
-    dataset = create_or_load_dataset(data_file_path)
-  File "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/data/make_dataset.py", line 120, in create_or_load_dataset
-    return dataset
-UnboundLocalError: local variable 'dataset' referenced before assignment

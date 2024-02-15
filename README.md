@@ -27,41 +27,28 @@ The directory structure of the project looks like this:
 
 ```txt
 User
-├── LICENSE                                     <- Open-source license if one is chosen 📜
 ├── Makefile                                    <- Makefile with convenience commands like `make data` or `make train` 📦
 ├── README.md                                   <- The top-level README for developers using this project 📚
 ├── data
-│   ├── processed                               <- The final, canonical data sets for modeling 📊
-│   └── raw                                     <- The original, immutable data dump 📥
+│   ├── processed                               <- The final datasets, human annotations, and data modules 📊
+│   └── raw                                     <- The original data dump 📥
 │
-├── docs                                        <- Documentation folder 📃
-│   │
-│   ├── index.md                                <- Homepage for your documentation 🏠
-│   │
-│   ├── mkdocs.yml                              <- Configuration file for mkdocs ⚙️
-│   │
-│   └── source/                                 <- Source directory for documentation files 📝
+├── h2o_ca
+│   ├── processed  models                       <- Checkpoints 🤖
 │
-├── models                                      <- Trained and serialized models, model predictions, or model summaries 🤖
+├── pyproject.toml                              <- Project configuration file ⚙️
 │
-├── notebooks                                   <- Jupyter notebooks for explorations and experiments 📓
-│
-├── pyproject.toml                              <- Project configuration file, typically for Python projects ⚙️
-│
-├── reports                                     <- Generated analysis as HTML, PDF, LaTeX, etc. 📊
-│   └── figures                                 <- Generated graphics and figures to be used in reporting 📈
+├── reports                                     <- Generated figures, videos. 📊
 │
 ├── requirements.txt                            <- The requirements file for reproducing the analysis environment 🐍
 |
 ├── requirements_dev.txt                        <- Additional requirements for development purposes 🧪
 │
-├── tests                                       <- Automated tests for the software 🧪
-│
-├── h2o_ca                                      <- Source code for use in this project 📁
+├── h2o_ca                                      
 │   │
 │   ├── __init__.py                             <- Makes h2o_ca a Python module 🐍
 │   │
-│   ├── data                                    <- Scripts to download or generate data 📦
+│   ├── data                                    <- Scripts generate dataset 📦
 │   │   ├── __init__.py
 │   │   └── make_dataset.py
 │   │
@@ -69,13 +56,11 @@ User
 │   │   ├── __init__.py
 │   │   ├── model.py
 │   │
-│   ├── visualization                           <- Scripts to create exploratory and results oriented visualizations 📊
+│   ├── visualization                           <- Scripts to c 📊
 │   │   ├── __init__.py
-│   │   └── visualize.py
+│   │   └── predict.sh                          <- Script for making predictions with a trained model 🚀
 │   │
-│   ├── train_model.py                          <- Script for training the model 🚂
-│   └── predict_model.py                        <- Script for making predictions with a trained model 🚀
-│
+│   └── train_model.sh                          <- Script for training the model 🚂
 └── LICENSE                                     <- Open-source license if one is chosen 📜
 ```
 

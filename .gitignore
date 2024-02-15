@@ -177,5 +177,4 @@ cython_debug/
 #.idea/
 
 #Dataset
-30fps_int_1frame_numpy/
-data/
+h2o_ca/log
