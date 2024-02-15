@@ -13,7 +13,7 @@ Various training configurations, differentiated by their loss functions, are inv
 
 Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). Although the fully recursive tracking approach does not achieve state-of-the-art performance, the potential of next-frame prediction and next-4 frames prediction is acknowledged. The primary application envisioned is in augmented reality (AR).
 
-[![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf) [![View Slides](https://img.shields.io/badge/View%20Slides-PDF-blue.svg)](https://example.com/your-slides.pdf)
+[![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf) [![View Slides](https://img.shields.io/badge/View%20Slides-PDF-blue.svg)](https://tumde-my.sharepoint.com/:p:/g/personal/lorenzo_germano_tum_de/EUB0H4NWhSNJr6DZxvAC7DYBSbnNhMDW0_JukpY1c5SVUg?rtime=xh2BW0wu3Eg)
 
 <p align="center">
   <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline" width="50%">
@@ -244,8 +244,6 @@ sbatch H2O_train6_object.sh --first_option='pose' --second_option='joints' --thi
 ## 4. Monitoring Your Job
 
 After adjusting the paths in the SLURM script, monitor your job's progress through the SLURM utilities (`squeue`, `sacct`, etc.) and the log files specified in the SBATCH directives.
-
-Make sure all paths and environment names are correctly set to match your project and cluster environment.
 
 The execution calls `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize with old checkpoints.
 
