@@ -61,7 +61,7 @@ User
 │   │   └── predict.sh                          <- Script for making predictions with a trained model 🚀
 │   │
 │   └── train_model.sh                          <- Script for training the model 🚂
-└── LICENSE                                     <- Open-source license if one is chosen 📜
+└── LICENSE                                     <- Open-source license 📜
 ```
 
 Created using [mlops_template](https://github.com/SkafteNicki/mlops_template),
