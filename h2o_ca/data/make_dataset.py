@@ -15,7 +15,7 @@ load_existing_dataset = wandb.config.load_existing_dataset
 save_data_module = wandb.config.save_data_module
 load_data_module = wandb.config.load_data_module
 
-#breakpoint()
+# breakpoint()
 
 # Paths and settings
 data_file_path = "/scratch_net/biwidl307/lgermano/H2O/datasets/behave_test8.pkl"
@@ -24,9 +24,14 @@ base_path_trace = "/srv/beegfs02/scratch/3dhumanobjint/data/TRACE_results"
 base_path_template = "/scratch_net/biwidl307_second/lgermano/behave"
 path_to_file = "/scratch_net/biwidl307_second/lgermano/behave/split.json"
 
-cam_ids = wandb.config.cam_ids #[1]
+cam_ids = wandb.config.cam_ids  # [1]
 # E.g. selected_keys = ["SMPL_pose", "SMPL_joints", "OBJ_pose", "OBJ_trans"]
-selected_keys = [wandb.config.first_option,wandb.config.second_option, wandb.config.third_option, wandb.config.fourth_option]
+selected_keys = [
+    wandb.config.first_option,
+    wandb.config.second_option,
+    wandb.config.third_option,
+    wandb.config.fourth_option,
+]
 split_dict = load_split_from_path(path_to_file)
 
 # Device configuration
@@ -41,7 +46,6 @@ if load_existing_dataset:
             dataset = pickle.load(f)
 
 if create_new_dataset:
-    
     # Create a new dataset
 
     processed_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/datasets/30fps_numpy"
@@ -124,9 +128,7 @@ if save_data_module:
     data_file_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module"
     full_save_path = os.path.join(data_file_path, save_file_name)
 
-    data_module = BehaveDataModule(
-        behave_dataset, split_dict, len(behave_dataset.data_info)
-    )
+    data_module = BehaveDataModule(behave_dataset, split_dict, len(behave_dataset.data_info))
 
     # Save the data module locally
     with open(full_save_path, "wb") as f:
@@ -138,8 +140,7 @@ if load_data_module:
     full_save_path = os.path.join(data_file_path, save_file_name)
 
     # Load the data
-    with open(full_save_path, 'rb') as f:
+    with open(full_save_path, "rb") as f:
         data_module = pickle.load(f)
 
 print("Dataset loaded", flush=True)
-

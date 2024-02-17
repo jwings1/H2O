@@ -23,45 +23,65 @@ Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). A
 
 # Project structure 📂
 
-The directory structure of the project looks like this:
-
-```txt
+```bash
 User
-├── Makefile                                    <- Makefile with convenience commands like `make data` or `make train` 📦
-├── README.md                                   <- The top-level README for developers using this project 📚
+.
+├── LICENSE                              <- Open-source license 📜
+├── Makefile                             <- Makefile with convenience commands like `make data` 📦
+├── README.md                            <- Project description and instructions 📄
 ├── data
-│   ├── processed                               <- The final datasets, human annotations, and data modules 📊
-│   └── raw                                     <- The original data dump 📥
-│
+│   ├── processed                        <- The final datasets, human annotations, and data modules 📊
+│   └── raw                              <- The original data dump 📥
+├── environment.yml                      <- Conda environment file for ensuring reproducibility across setups 🌍 
 ├── h2o_ca
-│   ├── processed  models                       <- Checkpoints 🤖
-│
-├── pyproject.toml                              <- Project configuration file ⚙️
-│
-├── reports                                     <- Generated figures, videos. 📊
-│
-├── requirements.txt                            <- The requirements file for reproducing the analysis environment 🐍
-|
-├── requirements_dev.txt                        <- Additional requirements for development purposes 🧪
-│
-├── h2o_ca                                      
-│   │
-│   ├── __init__.py                             <- Makes h2o_ca a Python module 🐍
-│   │
-│   ├── data                                    <- Scripts generate dataset 📦
+│   ├── H2O_CA.py                        <- Main model implementation file, see Table 4.1, column Setup, row 2 🧠
+│   ├── H2O_CA_chain.py                  <- See Table 4.1, column Setup, row 3  🔄
+│   ├── H2O_CA_encoder_only.py           <- Encoder-only model variant, see Table 4.1, column Setup, row 4 🧩
+│   ├── H2O_CA_next_frame_loss.py        <- See Table 4.1, column Setup, row 1 🔮
+│   ├── __init__.py                      <- Makes h2o_ca a Python module 🐍
+│   ├── __pycache__                      <- Python cache files for faster load times ⚡
+│   ├── data                             <- Scripts to generate datasets 📦
 │   │   ├── __init__.py
-│   │   └── make_dataset.py
-│   │
-│   ├── models                                  <- Model implementations, training and prediction scripts 🤖
+│   │   ├── __pycache__
+│   │   ├── behave_dataset.py            <- Script with DataModule and DataLoader 🧐
+│   │   ├── labels.py                    <- Script for chosing which labels to process 🏷️
+│   │   ├── make_dataset.py              <- Script for creating and preprocessing datasets 🛠️
+│   │   └── utils.py                     <- Utility functions for dataset preparation 🛠️
+│   ├── environment.yml                  <- Environment file specific to model development 🌱
+│   ├── log                              <- Logs for training and prediction processes 📝
+│   ├── models                           <- Saved model checkpoints 🤖
 │   │   ├── __init__.py
-│   │   ├── model.py
-│   │
-│   ├── visualization                           <- Scripts to c 📊
-│   │   ├── __init__.py
-│   │   └── predict.sh                          <- Script for making predictions with a trained model 🚀
-│   │
-│   └── train_model.sh                          <- Script for training the model 🚂
-└── LICENSE                                     <- Open-source license 📜
+│   │   ├── model_encoder_only_epoch_4.pt
+│   │   ├── model_radiant-leaf-3120_epoch_119.pt
+│   │   ├── model_radiant-leaf-3120_epoch_99.pt
+│   │   └── model_single_prediction_epoch_563.pt
+│   ├── train_model.py                   <- Main script for training models 🏋️
+│   ├── train_model.sh                   <- Shell script for model training automation 🚂
+│   └── visualizations                   <- Scripts and resources for model predictions and visualizations 🚀
+│       ├── __init__.py
+│       ├── __pycache__
+│       ├── metrics.py                   <- Script for calculating and reporting metrics 📏
+│       ├── predict.py                   <- Script for making predictions with a trained model 🔮
+│       ├── predict.sh                   <- Shell script for running predictions 🚀
+│       └── videos
+├── h2o_ca.egg-info
+│   ├── PKG-INFO
+│   ├── SOURCES.txt
+│   ├── dependency_links.txt
+│   ├── requires.txt
+│   └── top_level.txt
+├── pyproject.toml                       <- Project configuration file ⚙️
+├── reports                              <- Reports, including figures and videos 📊
+│   ├── 3D_Human_Object_Interaction_in_Video.pdf <- Report on human-object interaction analysis 📑
+│   ├── figures                          <- README figures 🖼️
+│   │   ├── FireflyHuman2Object.png
+│   │   └── Pipeline.png
+│   └── videos                           <- Directory for storing generated videos 📹
+│       └── Date02_Sub02_boxsmall_hand_20240117_003809.mp4
+├── requirements.txt                     <- The requirements file for reproducing the analysis environment 🐍
+├── requirements_dev.txt                 <- Additional requirements for development purposes 🧪
+└── trilateration
+    └── robustness_of_distance.py        <- See section 3.3.4 📏
 ```
 
 Created using [mlops_template](https://github.com/SkafteNicki/mlops_template),
@@ -251,6 +271,16 @@ first_frame_data = first_camera_view_data[0]
 frame_keys = first_frame_data.keys()
 print(f"Data keys available in a frame: {frame_keys}")
 
+```
+# Makefile utilities 🇲
+
+```bash
+make create_environment
+conda activate h2o_ca
+make requirements  # install everything in the requirements.txt file
+make dev_requirements
+make clean  # clean __pycache__ files
+make data  # runs the make_dataset.py file
 ```
 
 # Bibtex 📝

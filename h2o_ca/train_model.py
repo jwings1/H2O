@@ -16,9 +16,11 @@ from data.utils import *
 # from H2O_CA import CombinedTrans
 from H2O_CA_encoder_only import CombinedTrans
 
+
 # Function to create a timestamp
 def timestamp():
     return datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 # Function to create a command-line argument parser
 def create_parser():
@@ -71,13 +73,14 @@ def create_parser():
     parser.add_argument("--frames_subclip", type=int, default=12, help="Number of frames per subclip.")
     parser.add_argument("--masked_frames", type=int, default=4, help="Number of masked frames.")
     parser.add_argument("--L", type=int, default=[1], help="Number of interpoaltion frames L.")
-    parser.add_argument("--create_new_dataset", action='store_true', help="Whether to create a new dataset.")
-    parser.add_argument("--load_existing_dataset", action='store_true', help="Whether to load an existing dataset.")
-    parser.add_argument("--save_data_module", action='store_true', help="Whether to save the data module.")
-    parser.add_argument("--load_data_module", action='store_false', help="Whether to load the data module.")
+    parser.add_argument("--create_new_dataset", action="store_true", help="Whether to create a new dataset.")
+    parser.add_argument("--load_existing_dataset", action="store_true", help="Whether to load an existing dataset.")
+    parser.add_argument("--save_data_module", action="store_true", help="Whether to save the data module.")
+    parser.add_argument("--load_data_module", action="store_false", help="Whether to load the data module.")
     parser.add_argument("--cam_ids", nargs="+", type=int, default=[1], help="Camera IDs used for training.")
 
     return parser
+
 
 if __name__ == "__main__":
     parser = create_parser()
@@ -156,26 +159,28 @@ if __name__ == "__main__":
                 "first_option": args.first_option,
                 "second_option": args.second_option,
                 "third_option": args.third_option,
-                "fourth_option": args.fourth_option
+                "fourth_option": args.fourth_option,
             },
-            mode="offline"
+            mode="offline",
         )
 
         # Automatically use CUDA if available, otherwise fall back to CPU
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        
+
         best_overall_avg_loss_val = float("inf")
         best_params = None
         wandb.run.name = name
 
         # Initialize your model and move it to the appropriate device
-        model_combined = CombinedTrans(frames_subclip=wandb.config.frames_subclip, masked_frames=wandb.config.masked_frames)
+        model_combined = CombinedTrans(
+            frames_subclip=wandb.config.frames_subclip, masked_frames=wandb.config.masked_frames
+        )
         model_combined.to(device)
 
         # Load the model from a checkpoint if needed
-        #checkpoint_path = "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/models/model_radiant-leaf-3120_epoch_119.pt"
-        #checkpoint = torch.load(checkpoint_path, map_location=device)
-        #model_combined.load_state_dict(checkpoint)
+        # checkpoint_path = "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/models/model_radiant-leaf-3120_epoch_119.pt"
+        # checkpoint = torch.load(checkpoint_path, map_location=device)
+        # model_combined.load_state_dict(checkpoint)
 
         wandb_logger = WandbLogger()
         # Set log=all to inspect gradients
@@ -189,7 +194,7 @@ if __name__ == "__main__":
             num_sanity_val_steps=0,
         )
 
-        # Load data 
+        # Load data
         from data.make_dataset import data_module
 
         trainer.fit(model_combined, data_module)
@@ -205,7 +210,7 @@ if __name__ == "__main__":
                 "lambda_1": LAMBDA_1,
                 "lambda_2": LAMBDA_2,
                 "L": L,
-                "epochs": EPOCHS
+                "epochs": EPOCHS,
             }
 
             # Optionally, to test the model:

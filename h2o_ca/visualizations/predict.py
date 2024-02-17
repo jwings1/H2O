@@ -87,10 +87,19 @@ def load_config(camera_id, base_path, Date="Date01"):
         return json.load(f)
 
 
-def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj_faces, \
-    candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints, \
-    fraction=1.0, transparency=0.4, scale_factor=1.0):
-
+def project_mesh_on_image(
+    img,
+    projected_verts,
+    faces,
+    obj_projected_verts,
+    obj_faces,
+    candidate_obj_projected_verts,
+    candidate_faces_np,
+    projected_selected_joints,
+    fraction=1.0,
+    transparency=0.4,
+    scale_factor=1.0,
+):
     ##print("Start of project_mesh_on_image function.")
     ##print(f"Number of projected_verts_smpl: {len(projected_verts)}")
 
@@ -107,7 +116,7 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     # Randomly sample a fraction of the obj faces
     obj_sampled_faces = obj_faces
     candidate_obj_sampled_faces = candidate_faces_np
-    #random.sample(obj_faces, int(len(obj_faces) * fraction))
+    # random.sample(obj_faces, int(len(obj_faces) * fraction))
     ###print(f"Number of obj sampled faces: {len(obj_sampled_faces)}")
 
     # Resize the image based on the scale_factor
@@ -121,7 +130,7 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
         triangle3D = [projected_verts[face[0]], projected_verts[face[1]], projected_verts[face[2]]]
 
         # Clamping the projected vertices
-        #triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in triangle3D]
+        # triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in triangle3D]
 
         triangle2D = np.array([triangle3D], dtype=np.int32)
         triangles2D.append(triangle2D)
@@ -131,17 +140,21 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
         obj_triangle3D = [obj_projected_verts[face[0]], obj_projected_verts[face[1]], obj_projected_verts[face[2]]]
 
         # Clamping the projected vertices
-        #obj_triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in obj_triangle3D]
+        # obj_triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in obj_triangle3D]
 
         obj_triangle2D = np.array([obj_triangle3D], dtype=np.int32)
         obj_triangles2D.append(obj_triangle2D)
 
     candidate_obj_triangles2D = []
     for face in candidate_obj_sampled_faces:
-        candidate_obj_triangle3D = [candidate_obj_projected_verts[face[0]], candidate_obj_projected_verts[face[1]], candidate_obj_projected_verts[face[2]]]
+        candidate_obj_triangle3D = [
+            candidate_obj_projected_verts[face[0]],
+            candidate_obj_projected_verts[face[1]],
+            candidate_obj_projected_verts[face[2]],
+        ]
 
         # Clamping the projected vertices
-        #obj_triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in obj_triangle3D]
+        # obj_triangle3D_clamped = [(min(max(int(v[0]), 0), new_width-1), min(max(int(v[1]), 0), new_height-1)) for v in obj_triangle3D]
 
         candidate_obj_triangle2D = np.array([candidate_obj_triangle3D], dtype=np.int32)
         candidate_obj_triangles2D.append(candidate_obj_triangle2D)
@@ -204,8 +217,8 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     #  Plotting the joint points
     def var_to_label(var_name):
         """Converts a variable name to a readable label."""
-        words = var_name.split('_')
-        label = ' '.join([word.capitalize() for word in words])
+        words = var_name.split("_")
+        label = " ".join([word.capitalize() for word in words])
         return label
 
     # Assuming joint_points is a list of 2D coordinates for the selected joints.
@@ -213,23 +226,61 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
 
     # Colors for each joint
     joint_colors = [
-        (0, 255, 0), (255, 255, 0), (255, 0, 255), (0, 255, 255),  # Green, Yellow, Magenta, Cyan
-        (255, 0, 0), (0, 0, 255), (128, 128, 128), (0, 128, 128),  # Red, Blue, Gray, Teal
-        (128, 0, 128), (128, 128, 0), (0, 128, 0), (128, 0, 0),    # Purple, Olive, Green, Maroon
-        (64, 0, 128), (0, 64, 128), (128, 64, 0), (0, 128, 64),    # Additional colors
-        (64, 128, 0), (128, 0, 64), (255, 128, 0), (0, 128, 255),
-        (255, 0, 128), (128, 255, 0), (0, 255, 128), (128, 0, 255)
+        (0, 255, 0),
+        (255, 255, 0),
+        (255, 0, 255),
+        (0, 255, 255),  # Green, Yellow, Magenta, Cyan
+        (255, 0, 0),
+        (0, 0, 255),
+        (128, 128, 128),
+        (0, 128, 128),  # Red, Blue, Gray, Teal
+        (128, 0, 128),
+        (128, 128, 0),
+        (0, 128, 0),
+        (128, 0, 0),  # Purple, Olive, Green, Maroon
+        (64, 0, 128),
+        (0, 64, 128),
+        (128, 64, 0),
+        (0, 128, 64),  # Additional colors
+        (64, 128, 0),
+        (128, 0, 64),
+        (255, 128, 0),
+        (0, 128, 255),
+        (255, 0, 128),
+        (128, 255, 0),
+        (0, 255, 128),
+        (128, 0, 255),
     ]
 
     # Names for each joint (converted from variable names)
     selected_joints = projected_selected_joints
     selected_joint_names = [
-        'pelvis', 'left_hip', 'right_hip', 'spine1', 'left_knee', 'right_knee',
-        'spine2', 'left_ankle', 'right_ankle', 'spine3', 'left_foot', 'right_foot',
-        'neck', 'left_collar', 'right_collar', 'head', 'left_shoulder', 'right_shoulder',
-        'left_elbow', 'right_elbow', 'left_wrist', 'right_wrist', 'left_hand', 'right_hand'
+        "pelvis",
+        "left_hip",
+        "right_hip",
+        "spine1",
+        "left_knee",
+        "right_knee",
+        "spine2",
+        "left_ankle",
+        "right_ankle",
+        "spine3",
+        "left_foot",
+        "right_foot",
+        "neck",
+        "left_collar",
+        "right_collar",
+        "head",
+        "left_shoulder",
+        "right_shoulder",
+        "left_elbow",
+        "right_elbow",
+        "left_wrist",
+        "right_wrist",
+        "left_hand",
+        "right_hand",
     ]
-    selected_joint_colors = joint_colors[:len(selected_joints)]
+    selected_joint_colors = joint_colors[: len(selected_joints)]
 
     # Drawing the selected joints on the image
     for point, color in zip(joint_points, selected_joint_colors):
@@ -241,10 +292,19 @@ def project_mesh_on_image(img, projected_verts, faces,  obj_projected_verts, obj
     start_x = img.shape[1] - 200  # Adjusting the starting point to fit longer joint names
 
     for i, (name, color) in enumerate(zip(selected_joint_names, selected_joint_colors)):
-        cv2.circle(img, (start_x, start_y + i*30), radius=7, color=color, thickness=-1)
-        cv2.putText(img, name, (start_x + 20, start_y + i*30 + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.circle(img, (start_x, start_y + i * 30), radius=7, color=color, thickness=-1)
+        cv2.putText(
+            img,
+            name,
+            (start_x + 20, start_y + i * 30 + 5),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
 
-    #print("End of project_mesh_on_image function.")
+    # print("End of project_mesh_on_image function.")
     return img
 
 
@@ -588,17 +648,17 @@ def axis_angle_loss(pred, true):
 
     return torch.mean(loss)
 
+
 ###############################################################################################################
 def main():
-
-    identifiers = ["Date03_Sub04_monitor_move"] 
+    identifiers = ["Date03_Sub04_monitor_move"]
     # "Date03_Sub03_tablesquare_move" ,"Date03_Sub03_stool_sit","Date03_Sub03_stool_lift", "Date03_Sub03_plasticcontainer", "Date03_Sub03_chairwood_sit", "Date03_Sub03_boxmedium", "Date03_Sub03_boxlarge",\
     # "Date03_Sub05_tablesquare", "Date03_Sub05_suitcase", "Date03_Sub05_stool", "Date03_Sub05_boxmedium", "Date03_Sub04_tablesquare_sit", "Date03_Sub04_suitcase_lift", "Date03_Sub04_plasticcontainer_lift", "Date03_Sub04_boxlong", "Date03_Sub03_yogamat"
-    
+
     temp_dir = "/scratch_net/biwidl307/lgermano/H2O/h2o_ca/visualizations/temp_frames"
-    
+
     ###############################################################################################################
-    
+
     # Load data from data module
     save_file_name = f"peachy-snow-3085cross_att_12_4_norm_cam2_offset_norm_1e-6e-0_overfit_test.pt"
     data_file_path = "/srv/beegfs02/scratch/3dhumanobjint/data/H2O/data_module"
@@ -609,7 +669,7 @@ def main():
     #     data_module = pickle.load(f)
 
     ###############################################################################################################
-    
+
     # Load data from .pkl files
     for identifier in identifiers:
         print("Processing:", identifier, flush=True)
@@ -779,7 +839,7 @@ def main():
                     items[3][-masked_frames - 1] = prev_obj_trans_offset
 
                     ####################################################################################
-                    
+
                     # GT values for re-setting
                     keys_GT = ["SMPL_pose", "SMPL_joints", "OBJ_pose", "OBJ_trans"]
                     items_GT = []
@@ -917,11 +977,19 @@ def main():
                 ]
                 candidate_faces_np = np.asarray(GT_obj.triangles)  # Convert the triangles to numpy array
 
-                img = project_mesh_on_image(img, projected_verts, smpl_faces, obj_projected_verts, faces_np, \
-                candidate_obj_projected_verts, candidate_faces_np, projected_selected_joints)
+                img = project_mesh_on_image(
+                    img,
+                    projected_verts,
+                    smpl_faces,
+                    obj_projected_verts,
+                    faces_np,
+                    candidate_obj_projected_verts,
+                    candidate_faces_np,
+                    projected_selected_joints,
+                )
 
-                candidate_obj_pose = candidate_obj_pose[0,-masked_frames,:]
-                candidate_obj_trans = candidate_obj_trans[0,-masked_frames,:]
+                candidate_obj_pose = candidate_obj_pose[0, -masked_frames, :]
+                candidate_obj_trans = candidate_obj_trans[0, -masked_frames, :]
 
                 # Calculate MSE for obj_pose
                 # Obj pose is abs
@@ -936,7 +1004,7 @@ def main():
                 # Add cam_id onto the image
                 font = cv2.FONT_HERSHEY_SIMPLEX
                 fontScale = 1
-                fontColor = (255, 255, 255) # White color
+                fontColor = (255, 255, 255)  # White color
                 lineType = 4
 
                 # Text positions
@@ -945,26 +1013,27 @@ def main():
                 bottomRightCornerOfText2 = (10, 150)  # Position for MSE trans
 
                 # Put text on the image
-                cv2.putText(img, f'Camera ID: {cam_id}',
-                            bottomLeftCornerOfText,
-                            font,
-                            fontScale,
-                            fontColor,
-                            lineType)
+                cv2.putText(img, f"Camera ID: {cam_id}", bottomLeftCornerOfText, font, fontScale, fontColor, lineType)
 
-                cv2.putText(img, f'MSE pose: {obj_pose_loss:.4f}',
-                            bottomRightCornerOfText1,
-                            font,
-                            fontScale,
-                            fontColor,
-                            lineType)
+                cv2.putText(
+                    img,
+                    f"MSE pose: {obj_pose_loss:.4f}",
+                    bottomRightCornerOfText1,
+                    font,
+                    fontScale,
+                    fontColor,
+                    lineType,
+                )
 
-                cv2.putText(img, f'MSE trans: {obj_trans_loss:.4f}',
-                            bottomRightCornerOfText2,
-                            font,
-                            fontScale,
-                            fontColor,
-                            lineType)
+                cv2.putText(
+                    img,
+                    f"MSE trans: {obj_trans_loss:.4f}",
+                    bottomRightCornerOfText2,
+                    font,
+                    fontScale,
+                    fontColor,
+                    lineType,
+                )
 
                 print(f"Rendered SMPL on image for camera {cam_id}.")
                 images.append(img)
@@ -1037,26 +1106,33 @@ def main():
         #######################################################
 
         # Get the current timestamp
-        timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
         base_video_path = os.path.join("/scratch_net/biwidl307/lgermano/H2O/h2o_ca/visualizations/videos/", identifier)
 
         video_path = f"{base_video_path}_{timestamp}.mp4"
 
-        subprocess.call([
-            "ffmpeg",
-            "-r", "60",
-            "-i", os.path.join(temp_dir, "frame_%04d.png"),
-            "-vcodec", "libx264",
-            "-crf", "30",
-            "-pix_fmt", "yuv420p",
-            video_path
-        ])
+        subprocess.call(
+            [
+                "ffmpeg",
+                "-r",
+                "60",
+                "-i",
+                os.path.join(temp_dir, "frame_%04d.png"),
+                "-vcodec",
+                "libx264",
+                "-crf",
+                "30",
+                "-pix_fmt",
+                "yuv420p",
+                video_path,
+            ]
+        )
         print(f"Video saved at {video_path}.")
 
         print("\nCleaning up temporary files...")
-        #shutil.rmtree(temp_dir)
-        #cv2.destroyAllWindows()
+        # shutil.rmtree(temp_dir)
+        # cv2.destroyAllWindows()
         print("Cleanup complete.")
 
 

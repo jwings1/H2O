@@ -32,6 +32,7 @@ class CustomCosineLR(_LRScheduler):
             for base_lr in self.base_lrs
         ]
 
+
 class MLP(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(MLP, self).__init__()
@@ -43,6 +44,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+
 
 class CombinedTrans(pl.LightningModule):
     def __init__(self, frames_subclip, masked_frames):
@@ -140,9 +142,9 @@ class CombinedTrans(pl.LightningModule):
 
         # Initialize tgt_mask
         # tgt_mask = torch.zeros(wandb.config.batch_size * self.num_heads, self.frames_subclip, self.d_model, self.d_model, dtype=torch.bool)
-        tgt_mask = torch.zeros(
-            1 * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool
-        ).to(device)
+        tgt_mask = torch.zeros(1 * self.num_heads, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(
+            device
+        )
         # tgt_mask = torch.zeros(48, self.frames_subclip, self.frames_subclip, dtype=torch.bool).to(device)
 
         # Iterate to set the last self.masked_frames rows of the upper diagonal matrix to True
@@ -236,9 +238,7 @@ class CombinedTrans(pl.LightningModule):
             norm_smpl_joints = normalize_data(
                 smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device)
             )
-            norm_obj_trans = normalize_data(
-                obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device)
-            )
+            norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
 
             masked_obj_pose = obj_pose.clone()
             masked_obj_trans = norm_obj_trans.clone()
@@ -336,9 +336,7 @@ class CombinedTrans(pl.LightningModule):
         norm_smpl_joints = normalize_data(
             smpl_joints.to(device), smpl_joints_mean.to(device), smpl_joints_std.to(device)
         )
-        norm_obj_trans = normalize_data(
-            obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device)
-        )
+        norm_obj_trans = normalize_data(obj_trans.to(device), obj_trans_mean.to(device), obj_trans_std.to(device))
 
         masked_obj_pose = obj_pose.clone()
         masked_obj_trans = norm_obj_trans.clone()
@@ -394,12 +392,8 @@ class CombinedTrans(pl.LightningModule):
         # Compute L2 loss (MSE) for both pose and translation
         # smpl_pose_loss = F.mse_loss(predicted_smpl_pose, smpl_pose)
         # smpl_joints_loss = F.mse_loss(predicted_smpl_joints, smpl_joints.reshape(wandb.config.batch_size, -1, 72))
-        pose_loss = F.mse_loss(
-            predicted_obj_pose[:, -self.masked_frames, :], obj_pose[:, -self.masked_frames, :]
-        )
-        trans_loss = F.mse_loss(
-            predicted_obj_trans[:, -self.masked_frames, :], obj_trans[:, -self.masked_frames, :]
-        )
+        pose_loss = F.mse_loss(predicted_obj_pose[:, -self.masked_frames, :], obj_pose[:, -self.masked_frames, :])
+        trans_loss = F.mse_loss(predicted_obj_trans[:, -self.masked_frames, :], obj_trans[:, -self.masked_frames, :])
 
         # Combine the losses
         total_loss = pose_loss + trans_loss

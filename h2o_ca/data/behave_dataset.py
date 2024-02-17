@@ -306,8 +306,8 @@ class BehaveDataModule(pl.LightningDataModule):
                 test_identifiers.append(scene)
 
         # Sanity check!!
-        #self.test_indices = self.train_indices
-        
+        # self.test_indices = self.train_indices
+
         self.val_indices = self.test_indices  # Assuming validation and training sets are the same
 
         # Uncomment to print identifiers in train and test sets

@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.spatial import cKDTree
 
+
 def compute_cd(GT_vertices, candidate_vertices):
     # Convert lists to numpy arrays for efficient computation
     # For each point in GT consider the closest point in PR
@@ -15,6 +16,7 @@ def compute_cd(GT_vertices, candidate_vertices):
         dists1.mean() + dists2.mean()
     )  #!NOTE should not be mean of all, see https://pdal.io/en/stable/apps/chamfer.html
 
+
 def add_err(pred, gt):
     """
     Average Distance of Model Points for objects with no indistinguishable views
@@ -25,6 +27,7 @@ def add_err(pred, gt):
     #   gt_pts = (gt@to_homo(model_pts).T).T[:,:3]
     e = np.linalg.norm(pred - gt, axis=1).mean()
     return e
+
 
 def adi_err(pred_pts, gt_pts):
     """
@@ -39,6 +42,7 @@ def adi_err(pred_pts, gt_pts):
     nn_dists, _ = nn_index.query(gt_pts, k=1, workers=-1)
     e = nn_dists.mean()
     return e
+
 
 def compute_auc(rec, max_val=0.1):
     if len(rec) == 0:
