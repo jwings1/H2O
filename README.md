@@ -23,7 +23,7 @@ Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). A
 
 # Project structure 📂
 
-```bash
+```text
 User
 .
 ├── LICENSE                              <- Open-source license 📜
@@ -190,15 +190,15 @@ The following CLI options are available for configuring the training process:
 
 ### Model and Data Configuration Options
 
-- `--first_option`: Specify the first option for the input data type. Choices include `SMPL_pose`, `pose_trace`, `unrolled_pose`, `unrolled_pose_trace`, `enc_unrolled_pose`, `enc_unrolled_pose_trace`. This option defines the primary input feature set for the model.
+- `--first_option`: Specify input to encoder in the orientation branch. For example, choices may include `SMPL_pose`, `pose_trace`, `unrolled_pose`, `unrolled_pose_trace`, `enc_unrolled_pose`, `enc_unrolled_pose_trace`.
   
-- `--second_option`: Specify the second option for the input data type. Choices are `SMPL_joints`, `distances`, `joints_trace`, `norm_joints`, `norm_joints_trace`, `enc_norm_joints`, `enc_norm_joints_trace`. Selects the secondary input feature set for model training.
+- `--second_option`: Specify input to encoder in the position branch. For example, choices may include `SMPL_joints`, `distances`, `joints_trace`, `norm_joints`, `norm_joints_trace`, `enc_norm_joints`, `enc_norm_joints_trace`.
   
-- `--third_option`: Choose between `OBJ_pose` and `enc_obj_pose` for the third input data type, focusing on object pose information.
+- `--third_option`: Choose e.g. between `OBJ_pose` and `enc_obj_pose` for input to the decoder in the orientation branch.
   
-- `--fourth_option`: Defines the fourth input data type with choices `OBJ_trans`, `norm_obj_trans`, `enc_norm_obj_trans`, focusing on object transformation data.
+- `--fourth_option`: Defines input to  the decoder in the position branch e.g. with choices `OBJ_trans`, `norm_obj_trans`, `enc_norm_obj_trans`.
 
-- `--scene`: Include scene information in the options. Default is `scene`.
+- `--scene`: Include scene information in the options. Default is `Date01_Sub01_backpack_back`.
 
 See https://github.com/jwings1/3DObjTracking/tree/master for a comparison of methods of regressing avatars.
 
@@ -206,7 +206,7 @@ See https://github.com/jwings1/3DObjTracking/tree/master for a comparison of met
 
 - `--learning_rate`: Set the learning rate(s) for training. Accepts multiple values for experiments. Default is `0.0001`.
   
-- `--epochs`: Number of epochs for training. Can specify multiple values. Default is `2`.
+- `--epochs`: Number of epochs for training. Can specify multiple values. Default is `20`.
   
 - `--batch_size`: Batch size for training. Accepts multiple values. Default is `16`.
   
@@ -243,14 +243,14 @@ See https://github.com/jwings1/3DObjTracking/tree/master for a comparison of met
 You can explore certain hyperparameters through a grid search by setting their ranges as flags, as shown in the example:
 
 ```bash
-sbatch H2O_train6_object.sh --first_option='pose' --second_option='joints' --third_option='obj_pose' --fourth_option='obj_trans' --name='block_cam2'
+sbatch train_model.sh --first_option='pose' --second_option='joints' --third_option='obj_pose' --fourth_option='obj_trans' --name='block_cam2' --L=[1,4]
 ```
 
 ## 4. Monitoring Your Job
 
 After adjusting the paths in the SLURM script, monitor your job's progress through the SLURM utilities (`squeue`, `sacct`, etc.) and the log files specified in the SBATCH directives.
 
-The execution calls `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize with old checkpoints.
+The execution should call `/scratch/lgermano/H2O/h2o_ca/data/make_dataset.py` to create and store data in `/scratch/lgermano/H2O/data/raw` or retrieve it, then save it into `/scratch/lgermano/H2O/data/processed`. The entire BEHAVE dataset takes up 4 GB. Choose the labels to train and pick the architecture you want to train in `train_model`. Optionally, you can initialize the model with old checkpoints at `/scratch/lgermano/H2O/h2o_ca/models`.
 
 ### Dataset Usage Example
 

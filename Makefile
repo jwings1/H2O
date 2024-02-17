@@ -18,7 +18,7 @@ PYTHON_INTERPRETER = python
 
 ## Set up python interpreter environment
 create_environment:
-	export PIP_CACHE_DIR=/biwidl307/lgermano/scratch/.cache
+	export PIP_CACHE_DIR=/scratch_net/biwidl307/lgermano/.cache
 	CONDA_OVERRIDE_CUDA=11.7 conda create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) pytorch=2.0.1 pytorch-cuda=11.7 torchvision cudatoolkit=11.7 pytorch-lightning scipy wandb matplotlib --channel pytorch --channel nvidia -y
 
 ## Install Python Dependencies

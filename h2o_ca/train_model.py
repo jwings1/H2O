@@ -56,7 +56,7 @@ def create_parser():
         choices=["OBJ_trans", "norm_obj_trans", "enc_norm_obj_trans"],
         help="Specify the fourth option.",
     )
-    parser.add_argument("--scene", default=["scene"], help="Include scene in the options.")
+    parser.add_argument("--scene", default=["Date01_Sub01_backpack_back"], help="Include scene in the options.")
     parser.add_argument("--learning_rate", nargs="+", type=float, default=[1e-4])
     parser.add_argument("--epochs", nargs="+", type=int, default=[20])
     parser.add_argument("--batch_size", nargs="+", type=int, default=[16])
