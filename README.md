@@ -13,7 +13,7 @@ Various training configurations, differentiated by their loss functions, are inv
 
 Qualitative results are illustrated [here](https://jwings1.github.io/H2O-CA/). Although the fully recursive tracking approach does not achieve state-of-the-art performance, the potential of next-frame prediction and next-4 frames prediction is acknowledged. The primary application envisioned is in augmented reality (AR).
 
-[![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf) [![View Slides](https://img.shields.io/badge/View%20Slides-PDF-blue.svg)](https://tumde-my.sharepoint.com/:p:/g/personal/lorenzo_germano_tum_de/EUB0H4NWhSNJr6DZxvAC7DYBSbnNhMDW0_JukpY1c5SVUg?rtime=xh2BW0wu3Eg)
+[![Read More](https://img.shields.io/badge/Read%20the%20Paper-PDF-blue.svg)](https://github.com/jwings1/H2O/blob/code-refactored/reports/3D_Human_Object_Interaction_in_Video.pdf) [![View Slides](https://1drv.ms/p/s!AizekQ5AsLZjh9cHuhkVtQpLgw9QJw?e=195mxw)
 
 <p align="center">
   <img src="/reports/figures/Pipeline.png" alt="H2O-CA pipeline" width="50%">
